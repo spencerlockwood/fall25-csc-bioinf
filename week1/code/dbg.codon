@@ -1,0 +1,247 @@
+def reverse_complement(key: str) -> str:
+    """Generate reverse complement of DNA sequence"""
+    complement = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}
+    
+    # Convert to list for easier manipulation
+    result: List[str] = []
+    for i in range(len(key) - 1, -1, -1):  # Reverse iteration
+        base = key[i]
+        if base in complement:
+            result.append(complement[base])
+        else:
+            result.append(base)  # Handle N or other bases
+    
+    return ''.join(result)
+
+class Node:
+    """Node in de Bruijn graph"""
+    kmer: str
+    _children: Set[int]
+    _count: int
+    visited: bool
+    depth: int
+    max_depth_child: Optional[int]
+
+    def __init__(self, kmer: str):
+        self.kmer = kmer
+        self._children = set()
+        self._count = 0
+        self.visited = False
+        self.depth = 0
+        self.max_depth_child = None
+
+    def add_child(self, kmer_idx: int):
+        """Add child node index"""
+        self._children.add(kmer_idx)
+
+    def increase(self):
+        """Increment count"""
+        self._count += 1
+
+    def reset(self):
+        """Reset node state for path finding"""
+        self.visited = False
+        self.depth = 0
+        self.max_depth_child = None
+
+    def get_count(self) -> int:
+        """Get node count"""
+        return self._count
+
+    def get_children(self) -> List[int]:
+        """Get list of child indices"""
+        result: List[int] = []
+        for child in self._children:
+            result.append(child)
+        return result
+
+    def remove_children(self, target: Set[int]):
+        """Remove specified children"""
+        # Create new set without target elements
+        new_children: Set[int] = set()
+        for child in self._children:
+            if child not in target:
+                new_children.add(child)
+        self._children = new_children
+
+class DBG:
+    """De Bruijn Graph for genome assembly"""
+    k: int
+    nodes: Dict[int, Node]
+    kmer2idx: Dict[str, int]
+    kmer_count: int
+
+    def __init__(self, k: int, data_list: List[List[str]]):
+        self.k = k
+        self.nodes = {}
+        self.kmer2idx = {}
+        self.kmer_count = 0
+        
+        # Build the graph
+        self._check(data_list)
+        self._build(data_list)
+
+    def _check(self, data_list: List[List[str]]):
+        """Validate input data"""
+        assert len(data_list) > 0
+        if len(data_list[0]) > 0:
+            assert self.k <= len(data_list[0][0])
+
+    def _build(self, data_list: List[List[str]]):
+        """Build de Bruijn graph from sequence data"""
+        for data in data_list:
+            for original in data:
+                rc = reverse_complement(original)
+                
+                # Process original sequence
+                for i in range(len(original) - self.k):
+                    kmer1 = original[i:i + self.k]
+                    kmer2 = original[i + 1:i + 1 + self.k]
+                    self._add_arc(kmer1, kmer2)
+                
+                # Process reverse complement
+                for i in range(len(rc) - self.k):
+                    kmer1 = rc[i:i + self.k]
+                    kmer2 = rc[i + 1:i + 1 + self.k]
+                    self._add_arc(kmer1, kmer2)
+
+    def show_count_distribution(self):
+        """Display count distribution of nodes"""
+        count: List[int] = [0] * 30
+        for idx in self.nodes:
+            node_count = self.nodes[idx].get_count()
+            if node_count < 30:
+                count[node_count] += 1
+        
+        # Print first 10 values
+        for i in range(10):
+            print(count[i], end=" ")
+        print()
+
+    def _add_node(self, kmer: str) -> int:
+        """Add node to graph or increment existing node count"""
+        if kmer not in self.kmer2idx:
+            self.kmer2idx[kmer] = self.kmer_count
+            self.nodes[self.kmer_count] = Node(kmer)
+            self.kmer_count += 1
+        
+        idx = self.kmer2idx[kmer]
+        self.nodes[idx].increase()
+        return idx
+
+    def _add_arc(self, kmer1: str, kmer2: str):
+        """Add edge between two k-mers"""
+        idx1 = self._add_node(kmer1)
+        idx2 = self._add_node(kmer2)
+        self.nodes[idx1].add_child(idx2)
+
+    def _get_count(self, child: int) -> int:
+        """Get count of child node"""
+        return self.nodes[child].get_count()
+
+    def _get_sorted_children(self, idx: int) -> List[int]:
+        """Get children sorted by count (descending)"""
+        children = self.nodes[idx].get_children()
+        
+        # Manual sort by count (descending)
+        n = len(children)
+        for i in range(n):
+            for j in range(0, n - i - 1):
+                if self._get_count(children[j]) < self._get_count(children[j + 1]):
+                    # Swap
+                    temp = children[j]
+                    children[j] = children[j + 1]
+                    children[j + 1] = temp
+        
+        return children
+
+    def _get_depth(self, idx: int) -> int:
+        """Get maximum depth from this node using DFS"""
+        if not self.nodes[idx].visited:
+            self.nodes[idx].visited = True
+            children = self._get_sorted_children(idx)
+            max_depth = 0
+            max_child: Optional[int] = None
+            
+            for child in children:
+                depth = self._get_depth(child)
+                if depth > max_depth:
+                    max_depth = depth
+                    max_child = child
+            
+            self.nodes[idx].depth = max_depth + 1
+            self.nodes[idx].max_depth_child = max_child
+        
+        return self.nodes[idx].depth
+
+    def _reset(self):
+        """Reset all nodes for path finding"""
+        for idx in self.nodes:
+            self.nodes[idx].reset()
+
+    def _get_longest_path(self) -> List[int]:
+        """Find longest path in the graph"""
+        max_depth = 0
+        max_idx: Optional[int] = None
+        
+        for idx in self.nodes:
+            depth = self._get_depth(idx)
+            if depth > max_depth:
+                max_depth = depth
+                max_idx = idx
+
+        # Reconstruct path
+        path: List[int] = []
+        current = max_idx
+        while current is not None:
+            path.append(current)
+            current = self.nodes[current].max_depth_child
+        
+        return path
+
+    def _delete_path(self, path: List[int]):
+        """Remove path from graph"""
+        # Convert path to set for efficient lookup
+        path_set: Set[int] = set()
+        for idx in path:
+            path_set.add(idx)
+        
+        # Delete nodes in path
+        for idx in path:
+            if idx in self.nodes:
+                del self.nodes[idx]
+        
+        # Remove references to deleted nodes from remaining nodes
+        for idx in self.nodes:
+            self.nodes[idx].remove_children(path_set)
+
+    def _concat_path(self, path: List[int]) -> Optional[str]:
+        """Concatenate k-mers in path to form contig"""
+        if len(path) < 1:
+            return None
+        
+        # Start with first k-mer
+        concat = self.nodes[path[0]].kmer
+        
+        # Add last character of each subsequent k-mer
+        for i in range(1, len(path)):
+            last_char = self.nodes[path[i]].kmer[-1]
+            concat += last_char
+        
+        return concat
+
+    def get_longest_contig(self) -> Optional[str]:
+        """Get longest contig and remove it from graph"""
+        # Reset node parameters for path finding
+        self._reset()
+        
+        # Find longest path
+        path = self._get_longest_path()
+        
+        # Convert path to contig sequence
+        contig = self._concat_path(path)
+        
+        # Remove path from graph
+        self._delete_path(path)
+        
+        return contig

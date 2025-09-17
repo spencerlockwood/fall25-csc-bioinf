@@ -1,0 +1,69 @@
+from dbg import DBG
+from utils import read_data
+import sys
+
+def calculate_n50(lengths: list[int]) -> int:
+    """Compute the N50 statistic from a list of contig lengths."""
+    if not lengths:
+        return 0
+    total = sum(lengths)
+    half = total / 2
+    running = 0
+    for length in sorted(lengths, reverse=True):
+        running += length
+        if running >= half:
+            return length
+    return 0
+
+
+def main():
+    """Main assembly function"""
+    if len(sys.argv) < 2:
+        print("Usage: codon run main.codon <data_directory>")
+        return
+    
+    # Get data directory from command line
+    data_dir = sys.argv[1]
+    
+    # Read input data
+    print("Reading data from:", data_dir)
+    short1, short2, long1 = read_data(data_dir)
+    
+    # Set k-mer size
+    k = 25
+    print("Building de Bruijn graph with k =", k)
+    
+    # Build de Bruijn graph
+    data_list = [short1, short2, long1]
+    dbg = DBG(k=k, data_list=data_list)
+    
+    # Assembly output
+    if data_dir.endswith('/'):
+        output_file = data_dir + 'contig.fasta'
+    else:
+        output_file = data_dir + '/contig.fasta'
+    print("Writing contigs to:", output_file)
+    
+    contig_lengths: list[int] = []
+    with open(output_file, 'w') as f:
+        for i in range(20):  # Try to get up to 20 contigs
+            contig = dbg.get_longest_contig()
+            if contig is None:
+                break
+            
+            contig_length = len(contig)
+            contig_lengths.append(contig_length)
+            print("Contig", i, ":", contig_length, "bp")
+            
+            # Write to FASTA format
+            f.write('>contig_' + str(i) + '\n')
+            f.write(contig + '\n')
+    
+    # 👉 Compute and print N50
+    n50 = calculate_n50(contig_lengths)
+    print("N50 =", n50)
+    print("Assembly complete:", len(contig_lengths), "contigs generated")
+
+
+if __name__ == "__main__":
+    main()
