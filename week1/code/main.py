@@ -31,7 +31,7 @@ if __name__ == "__main__":
     contig_file = os.path.join('./', argv[1], 'contig.fasta')
 
     with open(contig_file, 'w') as f:
-        for i in range(20):  # back to 20 like the report suggested
+        for i in range(20):
             c = dbg.get_longest_contig()
             if c is None:
                 break
@@ -40,6 +40,5 @@ if __name__ == "__main__":
             f.write(f'>contig_{i}\n')
             f.write(c + '\n')
 
-    # 👉 Compute and print N50
     n50 = calculate_n50(contig_lengths)
     print(f"N50 = {n50}")
