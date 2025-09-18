@@ -21,10 +21,13 @@ def run_and_capture(cmd, dataset, language):
         )
     except subprocess.CalledProcessError as e:
         print(f"❌ Error running {language} on {dataset}")
+        print("STDERR:", e.stderr)
+        print("STDOUT:", e.stdout)
         return "ERROR", 0
     except FileNotFoundError as e:
         print(f"❌ Command not found: {cmd[0]}")
         return "ERROR", 0
+
 
     end = time.time()
     elapsed = end - start

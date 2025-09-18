@@ -1,6 +1,4 @@
 import copy
-from matplotlib import pyplot as plt
-
 
 def reverse_complement(key):
     complement = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}
