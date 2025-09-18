@@ -3,7 +3,7 @@ from utils import read_data
 import sys
 import os
 
-sys.setrecursionlimit(10000000)
+sys.setrecursionlimit(1000000)
 
 
 def calculate_n50(lengths: list[int]) -> int:
