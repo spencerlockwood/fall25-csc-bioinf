@@ -22,7 +22,7 @@ def calculate_n50(lengths: list[int]) -> int:
 
 if __name__ == "__main__":
     argv = sys.argv
-    short1, short2, long1 = read_data(os.path.join('./', argv[1]))
+    short1, short2, long1 = read_data(argv[1])
 
     k = 25
     dbg = DBG(k=k, data_list=[short1, short2, long1])
