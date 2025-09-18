@@ -3,6 +3,8 @@ from utils import read_data
 import sys
 import os
 
+import faulthandler
+faulthandler.enable()
 sys.setrecursionlimit(1000000)
 
 
