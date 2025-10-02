@@ -25,6 +25,11 @@ jobs:
         with:
           python-version: '3.11'
       
+      - name: Install Python dependencies
+        run: |
+          pip install numpy
+          pip list
+      
       - name: Install Codon
         run: |
           mkdir -p ${HOME}/.codon
@@ -45,6 +50,7 @@ jobs:
         run: |
           python --version
           codon --version
+          python -c "import numpy; print(f'NumPy version: {numpy.__version__}')"
           
       - name: Test with Python
         run: |
