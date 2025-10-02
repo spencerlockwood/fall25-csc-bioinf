@@ -9,7 +9,7 @@ on:
     branches: [ main, master ]
     paths:
       - 'week2/**'
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:
 
 jobs:
   test-week2:
@@ -17,46 +17,51 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Check out repository code
+        uses: actions/checkout@v5
+        
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
       
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Install Codon
+        run: |
+          mkdir -p ${HOME}/.codon
+          curl -L https://github.com/exaloop/codon/releases/download/v0.19.3/codon-linux-x86_64.tar.gz \
+            | tar zxvf - --strip-components=1 -C ${HOME}/.codon
+          curl -L https://github.com/exaloop/seq/releases/download/v0.11.5/seq-linux-x86_64.tar.gz \
+            | tar zxvf - -C ${HOME}/.codon/lib/codon/plugins
+          echo "${HOME}/.codon/bin" >> $GITHUB_PATH
+      
+      - name: Set up Codon Python bridge
+        run: |
+          pip install find_libpython
+          export CODON_PYTHON=$(find_libpython)
+          echo "Found Python at: ${CODON_PYTHON}"
+          echo "CODON_PYTHON=${CODON_PYTHON}" >> $GITHUB_ENV
+      
+      - name: Verify installations
+        run: |
+          python --version
+          codon --version
+          
+      - name: Test with Python
+        run: |
+          cd week2/my-trviz-codon
+          echo "Running tests with Python:"
+          python test.py
         
-    - name: Install Codon
-      run: |
-        curl -L -o codon.tar.gz https://github.com/exaloop/codon/releases/download/v0.16.3/codon-ubuntu-22.04.tar.gz
-        tar -xzf codon.tar.gz
-        echo "$(pwd)/codon/bin" >> $GITHUB_PATH
+      - name: Test with Codon
+        run: |
+          cd week2/my-trviz-codon
+          echo "Running tests with Codon:"
+          codon run test.py
         
-    - name: Verify installations
-      run: |
-        python --version
-        codon --version
-        
-    - name: Navigate to week2 project
-      run: |
-        cd week2/my-trviz-codon
-        pwd
-        ls -la
-        
-    - name: Run Codon tests
-      run: |
-        cd week2/my-trviz-codon
-        codon run test.py
-        
-    - name: Test Python fallback (if Codon fails)
-      run: |
-        cd week2/my-trviz-codon
-        python test.py
-      continue-on-error: true  # This is optional fallback
-        
-    - name: Verify module structure
-      run: |
-        cd week2/my-trviz-codon
-        echo "Checking module structure:"
-        find . -name "*.py" -type f | head -20
-        echo "Testing Python import:"
-        python -c "import trviz_codon.motifs; import trviz_codon.decomposer; print('Python imports successful')"
+      - name: Verify module structure
+        run: |
+          cd week2/my-trviz-codon
+          echo "Module structure:"
+          find . -name "*.py" -type f
+          echo "Testing Python imports:"
+          python -c "import trviz_codon.motifs; import trviz_codon.decomposer; print('✅ Python imports successful')"
