@@ -12,7 +12,7 @@ data3	codon	0:00:18	9825
 data4	python	0:07:43	159255
 data4	codon	0:03:17	159478
 
-As you can see, I made some modifications to the actions.yml file to farmilarize myself with the process and to help debug. I felt that the main, most important portion of this assignment was the familiarization.
+As you can see, I made some modifications to the actions.yml file to farmilarize myself with the process and to help debug. I felt most important portion of this assignment was do develop a solid understanding of the Github CL, so I took the liberaty to modify it to my liking to ensure I understand how it works.
 
 
 
