@@ -1,6 +1,15 @@
 #!/bin/bash
 
-cd week3
+# Check if we're already in week3 directory, if not cd into it
+if [ -d "week3" ]; then
+    cd week3
+elif [ -f "evaluate.sh" ]; then
+    # We're already in week3 directory
+    echo "Already in week3 directory"
+else
+    echo "Error: Cannot find week3 directory"
+    exit 1
+fi
 
 echo "Language    Runtime"
 echo "-------------------"
@@ -66,17 +75,22 @@ python_time=$python_output
 
 # Run Codon version
 echo "Running Codon tests..."
-codon_output=$(codon run --release phylo_test.py 2>&1)
-codon_time=$codon_output
-
-# Validate results
-if ! [[ \"$python_time\" =~ ^[0-9]+$ ]]; then
-    python_time=\"ERROR\"
+if [ -f "phylo_test.py" ]; then
+    codon_output=$(codon run --release phylo_test.py 2>&1)
+    codon_time=$codon_output
+else
+    echo "Error: phylo_test.py not found"
+    codon_time="ERROR"
 fi
 
-if ! [[ \"$codon_time\" =~ ^[0-9]+$ ]]; then
-    codon_time=\"ERROR\"
+# Validate results are numbers
+if ! [[ "$python_time" =~ ^[0-9]+$ ]]; then
+    python_time="ERROR"
 fi
 
-echo \"python      ${python_time}ms\"
-echo \"codon       ${codon_time}ms\"
+if ! [[ "$codon_time" =~ ^[0-9]+$ ]]; then
+    codon_time="ERROR"
+fi
+
+echo "python      ${python_time}ms"
+echo "codon       ${codon_time}ms"
