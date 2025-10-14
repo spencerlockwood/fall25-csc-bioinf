@@ -1,19 +1,19 @@
-name: Week2 Testing Pipeline
+name: Week3 Testing Pipeline
 
 on:
   push:
     branches: [ main, master ]
     paths:
-      - 'week2/**'
+      - 'week3/**'
   pull_request:
     branches: [ main, master ]
     paths:
-      - 'week2/**'
+      - 'week3/**'
   workflow_dispatch:
 
 jobs:
-  test-week2:
-    name: Test Week2 Codon Project
+  test-week3:
+    name: Test Week3 Codon Project
     runs-on: ubuntu-latest
     
     steps:
@@ -28,6 +28,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install numpy
+          pip install biotite
           pip list
       
       - name: Install Codon
@@ -51,23 +52,21 @@ jobs:
           python --version
           codon --version
           python -c "import numpy; print(f'NumPy version: {numpy.__version__}')"
+          python -c "import biotite; print(f'Biotite version: {biotite.__version__}')"
           
-      - name: Test with Python
+      - name: Run performance comparison
         run: |
-          cd week2/my-trviz-codon
-          echo "Running tests with Python:"
-          python test.py
-        
-      - name: Test with Codon
+          cd week3
+          chmod +x evaluate.sh
+          echo "Running performance comparison:"
+          ./evaluate.sh
+          
+      - name: Verify source files
         run: |
-          cd week2/my-trviz-codon
-          echo "Running tests with Codon:"
-          codon run test.py
-        
-      - name: Verify module structure
-        run: |
-          cd week2/my-trviz-codon
-          echo "Module structure:"
-          find . -name "*.py" -type f
-          echo "Testing Python imports:"
-          python -c "import trviz_codon.motifs; import trviz_codon.decomposer; print('✅ Python imports successful')"
+          cd week3
+          echo "Source file structure:"
+          find src -name "*.py" -type f
+          echo "Test file structure:"
+          find tests -name "*.py" -type f
+          echo "Core files:"
+          ls -la phylo_test.py evaluate.sh report.md
