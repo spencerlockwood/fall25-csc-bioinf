@@ -1,0 +1,240 @@
+#!/usr/bin/env codon
+"""
+Sequence alignment algorithms implementation in Codon
+Supports: Global, Local, Semi-global (Fitting), and Affine Gap alignments
+Author: Week 4 Deliverable
+"""
+
+from sys import argv, exit as sys_exit
+from time import time
+
+def read_fasta(filename: str) -> Dict[str, str]:
+    """Read sequences from FASTA file"""
+    sequences: Dict[str, str] = {}
+    current_id = ""
+    current_seq: List[str] = []
+    
+    with open(filename, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith('>'):
+                if current_id:
+                    sequences[current_id] = ''.join(current_seq)
+                parts = line[1:].split()
+                current_id = parts[0] if parts else ""
+                current_seq = []
+            else:
+                current_seq.append(line)
+        
+        if current_id:
+            sequences[current_id] = ''.join(current_seq)
+    
+    return sequences
+
+
+def global_alignment(seq1: str, seq2: str, match: int = 3, mismatch: int = -3, gap: int = -2) -> int:
+    """
+    Needleman-Wunsch global alignment algorithm
+    Returns the alignment score
+    """
+    m = len(seq1)
+    n = len(seq2)
+    
+    # Initialize DP matrix
+    dp: List[List[int]] = [[0 for _ in range(n + 1)] for _ in range(m + 1)]
+    
+    # Initialize first row and column
+    for i in range(m + 1):
+        dp[i][0] = i * gap
+    for j in range(n + 1):
+        dp[0][j] = j * gap
+    
+    # Fill DP matrix
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            score_match = match if seq1[i-1] == seq2[j-1] else mismatch
+            
+            dp[i][j] = max(
+                dp[i-1][j-1] + score_match,
+                dp[i-1][j] + gap,
+                dp[i][j-1] + gap
+            )
+    
+    return dp[m][n]
+
+
+def local_alignment(seq1: str, seq2: str, match: int = 3, mismatch: int = -3, gap: int = -2) -> int:
+    """
+    Smith-Waterman local alignment algorithm
+    Returns the best local alignment score
+    """
+    m = len(seq1)
+    n = len(seq2)
+    
+    # Initialize DP matrix
+    dp: List[List[int]] = [[0 for _ in range(n + 1)] for _ in range(m + 1)]
+    
+    max_score = 0
+    
+    # Fill DP matrix
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            score_match = match if seq1[i-1] == seq2[j-1] else mismatch
+            
+            dp[i][j] = max(
+                0,
+                dp[i-1][j-1] + score_match,
+                dp[i-1][j] + gap,
+                dp[i][j-1] + gap
+            )
+            
+            max_score = max(max_score, dp[i][j])
+    
+    return max_score
+
+
+def semiglobal_alignment(seq1: str, seq2: str, match: int = 3, mismatch: int = -3, gap: int = -2) -> int:
+    """
+    Semi-global (fitting) alignment algorithm
+    Fits seq2 into seq1 without penalizing end gaps in seq1
+    Returns the best fitting alignment score
+    """
+    m = len(seq1)
+    n = len(seq2)
+    
+    # Initialize DP matrix
+    dp: List[List[int]] = [[0 for _ in range(n + 1)] for _ in range(m + 1)]
+    
+    # Initialize first column (no penalty for gaps at start of seq1)
+    for i in range(m + 1):
+        dp[i][0] = 0
+    
+    # Initialize first row (penalty for gaps in seq2)
+    for j in range(1, n + 1):
+        dp[0][j] = j * gap
+    
+    # Fill DP matrix
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            score_match = match if seq1[i-1] == seq2[j-1] else mismatch
+            
+            dp[i][j] = max(
+                dp[i-1][j-1] + score_match,
+                dp[i-1][j] + gap,
+                dp[i][j-1] + gap
+            )
+    
+    # Find max score in last column (no penalty for gaps at end of seq1)
+    max_score = dp[0][n]
+    for i in range(1, m + 1):
+        max_score = max(max_score, dp[i][n])
+    
+    return max_score
+
+
+def affine_gap_alignment(seq1: str, seq2: str, match: int = 3, mismatch: int = -3, gap_open: int = -5, gap_extend: int = -1) -> int:
+    """
+    Global alignment with affine gap penalty
+    Gap cost = gap_open + k * gap_extend (where k is gap length)
+    Returns the alignment score
+    """
+    m = len(seq1)
+    n = len(seq2)
+    
+    NEG_INF = -999999999
+    
+    # Three matrices: M (match), I (gap in seq1), J (gap in seq2)
+    M: List[List[int]] = [[NEG_INF for _ in range(n + 1)] for _ in range(m + 1)]
+    I: List[List[int]] = [[NEG_INF for _ in range(n + 1)] for _ in range(m + 1)]
+    J: List[List[int]] = [[NEG_INF for _ in range(n + 1)] for _ in range(m + 1)]
+    
+    # Initialize
+    M[0][0] = 0
+    
+    # First row - gaps in seq1
+    for j in range(1, n + 1):
+        J[0][j] = gap_open + j * gap_extend
+    
+    # First column - gaps in seq2
+    for i in range(1, m + 1):
+        I[i][0] = gap_open + i * gap_extend
+    
+    # Fill matrices
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            score_match = match if seq1[i-1] == seq2[j-1] else mismatch
+            
+            # M: match/mismatch (can come from any state)
+            M[i][j] = max(
+                M[i-1][j-1] + score_match,
+                I[i-1][j-1] + score_match,
+                J[i-1][j-1] + score_match
+            )
+            
+            # I: gap in seq1 (vertical - can extend or open)
+            I[i][j] = max(
+                M[i-1][j] + gap_open + gap_extend,
+                I[i-1][j] + gap_extend
+            )
+            
+            # J: gap in seq2 (horizontal - can extend or open)
+            J[i][j] = max(
+                M[i][j-1] + gap_open + gap_extend,
+                J[i][j-1] + gap_extend
+            )
+    
+    # Return best score from any of the three states
+    return max(M[m][n], I[m][n], J[m][n])
+
+
+def run_alignment(method: str, seq1: str, seq2: str) -> int:
+    """Run specified alignment method"""
+    if method == 'global':
+        return global_alignment(seq1, seq2)
+    elif method == 'local':
+        return local_alignment(seq1, seq2)
+    elif method == 'semiglobal':
+        return semiglobal_alignment(seq1, seq2)
+    elif method == 'affine':
+        return affine_gap_alignment(seq1, seq2)
+    else:
+        print(f"Error: Unknown method: {method}")
+        sys_exit(1)
+
+
+if len(argv) < 4:
+    print("Usage: codon run alignment.codon <method> <file1> <file2>")
+    print("Methods: global, local, semiglobal, affine")
+    sys_exit(1)
+
+method = argv[1]
+file1 = argv[2]
+file2 = argv[3]
+
+# Read sequences
+try:
+    seqs1 = read_fasta(file1)
+    seqs2 = read_fasta(file2)
+except IOError as e:
+    print(f"Error: File not found")
+    sys_exit(1)
+
+if len(seqs1) == 0 or len(seqs2) == 0:
+    print("Error: No sequences found in input files")
+    sys_exit(1)
+
+# Get first sequence from each file
+seq1_list = list(seqs1.values())
+seq2_list = list(seqs2.values())
+seq1 = seq1_list[0]
+seq2 = seq2_list[0]
+
+# Run alignment
+start_time = time()
+score = run_alignment(method, seq1, seq2)
+elapsed = (time() - start_time) * 1000.0
+
+print(f"Score: {score}")
+print(f"Time: {elapsed:.2f}ms")
