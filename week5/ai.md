@@ -1,0 +1,3 @@
+For this deliverable, I mainly used ChatGPT to help guide my workflow, and also and clarify steps in the bioinformatics analysis. It assisted me in interpreting the assignment instructions, suggesting the correct commands for alignment, variant calling, and haplotype phasing, and generating code snippets to process VCF files and extract star-alleles.
+
+It also slightly helped me format my results for the Jupyter notebook, including spell checking all of my writing and helping me draft explanations of what the data indicated. While I executed all commands and verified results myself, AI provided guidance and support in structuring the analysis and writing clear explanations.
