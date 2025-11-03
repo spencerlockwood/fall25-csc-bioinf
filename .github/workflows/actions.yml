@@ -1,40 +1,42 @@
 name: Github CI
+
 on: [push]
+
 jobs:
-  test:
+  submit-week5:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-      
-      - name: Install Codon
-        run: |
-          mkdir -p ${HOME}/.codon
-          curl -L https://github.com/exaloop/codon/releases/download/v0.19.3/codon-linux-x86_64.tar.gz | tar zxvf - --strip-components=1 -C ${HOME}/.codon
-          curl -L https://github.com/exaloop/seq/releases/download/v0.11.5/seq-linux-x86_64.tar.gz | tar zxvf - -C ${HOME}/.codon/lib/codon/plugins
-          export PATH=${PATH}:${HOME}/.codon/bin
-          echo "PATH=${PATH}" >> $GITHUB_ENV
-      
+      # Step 1: Information about the workflow
+      - run: echo "🎉 Workflow triggered by a ${{ github.event_name }} event."
+      - run: echo "🐧 Running on ${{ runner.os }} hosted by GitHub!"
+      - run: echo "🔎 Branch: ${{ github.ref }}, Repository: ${{ github.repository }}"
+
+      # Step 2: Check out repository
       - name: Check out repository code
         uses: actions/checkout@v5
-      
+
+      # Step 3: Set up Python
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
-      
-      - name: Set up Codon Python bridge
+
+      # Step 4: Install Python dependencies (optional, add any needed for notebook)
+      - name: Install dependencies
         run: |
-          pip install find_libpython
-          export CODON_PYTHON=$(find_libpython)
-          echo "Found Python at: ${CODON_PYTHON}"
-          echo "CODON_PYTHON=${CODON_PYTHON}" >> $GITHUB_ENV
-      
-      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
-      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
-      
-      - name: Week 4 - Sequence Alignment
+          python -m pip install --upgrade pip
+          pip install pandas matplotlib jupyter nbconvert
+
+      # Step 5: Confirm repository contents
+      - run: echo "Repository contents:" && ls -R
+
+      # Step 6: Submit week5 notebook (example: copy to a submissions folder)
+      - name: Prepare week5 submission
         run: |
-          cd week4
-          echo "Running Week 4 alignment algorithms evaluation..."
-          bash evaluate.sh
+          mkdir -p submissions/week5
+          cp week5/week5.ipynb submissions/week5/
+          echo "Week 5 notebook copied to submissions/week5/"
+
+      # Optional: Run notebook to make sure it executes without errors
+      - name: Execute week5 notebook
+        run: |
+          jupyter nbconvert --to notebook --execute submissions/week5/week5.ipynb --output executed_week5.ipynb
