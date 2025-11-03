@@ -1,42 +1,41 @@
 name: Github CI
-
 on: [push]
-
 jobs:
-  submit-week5:
+  test:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Information about the workflow
-      - run: echo "🎉 Workflow triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 Running on ${{ runner.os }} hosted by GitHub!"
-      - run: echo "🔎 Branch: ${{ github.ref }}, Repository: ${{ github.repository }}"
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
 
-      # Step 2: Check out repository
-      - name: Check out repository code
+      # 4. Check out repository code
+      - name: Check out repository
         uses: actions/checkout@v5
 
-      # Step 3: Set up Python
-      - uses: actions/setup-python@v6
+      # 5. Set up Python 3
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: "3.13"
 
-      # Step 4: Install Python dependencies (optional, add any needed for notebook)
+      # 6. Install Python dependencies for notebook
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install pandas matplotlib jupyter nbconvert
 
-      # Step 5: Confirm repository contents
-      - run: echo "Repository contents:" && ls -R
-
-      # Step 6: Submit week5 notebook (example: copy to a submissions folder)
-      - name: Prepare week5 submission
+      # 7. Confirm the notebook exists
+      - name: Check for notebook
         run: |
-          mkdir -p submissions/week5
-          cp week5/week5.ipynb submissions/week5/
-          echo "Week 5 notebook copied to submissions/week5/"
+          if [ -f week5/week5.ipynb ]; then
+            echo "✅ week5.ipynb found!"
+          else
+            echo "❌ week5.ipynb not found!"
+            exit 1
+          fi
 
-      # Optional: Run notebook to make sure it executes without errors
-      - name: Execute week5 notebook
+      # 8. Optional: Convert notebook to HTML as a test
+      - name: Test notebook conversion
         run: |
-          jupyter nbconvert --to notebook --execute submissions/week5/week5.ipynb --output executed_week5.ipynb
+          jupyter nbconvert --to html week5/week5.ipynb
+          echo "Notebook successfully converted to HTML"
