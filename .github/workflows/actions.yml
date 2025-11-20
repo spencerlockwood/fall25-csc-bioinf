@@ -1,89 +1,81 @@
-name: Github CI
+name: Week 6 Pipeline
 
-on: [push]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  test:
+  run-week6:
     runs-on: ubuntu-latest
 
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+    # ---------------------------------------------------------
+    # 1. Checkout repository
+    # ---------------------------------------------------------
+    - name: Checkout
+      uses: actions/checkout@v4
 
-      # -------------------------------------------------------------
-      # Install Salmon (prebuilt binary) + dependencies
-      # -------------------------------------------------------------
-      - name: Install Salmon (build from source)
-        run: |
-          sudo apt-get update
-      
-          # Required system dependencies
-          sudo apt-get install -y \
-              build-essential \
-              cmake \
-              libtbb-dev \
-              libboost-all-dev \
-              zlib1g-dev \
-              libcurl4-openssl-dev   # <-- REQUIRED FIX
-      
-          # Clone Salmon source
-          git clone https://github.com/COMBINE-lab/salmon.git
-          cd salmon
-          git checkout v1.10.2
-      
-          # Build
-          mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ..
-          make -j4
-      
-          # Install to /usr/local/bin
-          sudo make install
-      
+    # ---------------------------------------------------------
+    # 2. Install Python 3.10 (IMPORTANT: Salmon compatibility)
+    # ---------------------------------------------------------
+    - name: Install Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
 
-      # -------------------------------------------------------------
-      # Install alevin-fry via Rust/cargo
-      # -------------------------------------------------------------
-      - name: Install alevin-fry
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          source $HOME/.cargo/env
-          cargo install --locked alevin-fry
-          echo "$HOME/.cargo/bin/" >> $GITHUB_PATH
+    # ---------------------------------------------------------
+    # 3. Install Mambaforge (fast conda installer)
+    # ---------------------------------------------------------
+    - name: Install Mambaforge
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        miniconda-version: "latest"
+        python-version: "3.10"
+        activate-environment: scenv
+        auto-update-conda: false
+        use-mamba: true
 
-      # -------------------------------------------------------------
-      # Check out code and set up Python
-      # -------------------------------------------------------------
-      - name: Check out repository code
-        uses: actions/checkout@v5
+    # ---------------------------------------------------------
+    # 4. Install bioinformatics tools into the conda env
+    # ---------------------------------------------------------
+    - name: Install Salmon, Alevin-fry, and dependencies
+      shell: bash -l {0}
+      run: |
+        mamba install -y -n scenv -c bioconda -c conda-forge \
+            salmon=1.10.2 \
+            alevin-fry \
+            anndata \
+            scanpy \
+            celltypist \
+            igraph \
+            leidenalg
 
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
+    # ---------------------------------------------------------
+    # 5. Install Python packages for the notebook
+    # ---------------------------------------------------------
+    - name: Install Python deps (pip)
+      shell: bash -l {0}
+      run: |
+        pip install jupyter nbconvert papermill
 
-      - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install jupyter nbconvert anndata scanpy celltypist matplotlib seaborn numpy pandas
+    # ---------------------------------------------------------
+    # 6. Run the notebook
+    # ---------------------------------------------------------
+    - name: Execute week6 notebook
+      shell: bash -l {0}
+      env:
+        BOX_FASTQ_URL: ${{ secrets.BOX_FASTQ_URL }}
+        WHITELIST_URL: ${{ secrets.WHITELIST_URL }}
+      run: |
+        papermill week6/week6.ipynb week6/week6_output.ipynb
 
-      - run: echo "💡 Repository cloned."
-
-      - name: Week 6 – Execute notebook
-        working-directory: week6
-        env:
-          BOX_FASTQ_URL: ${{ secrets.BOX_FASTQ_URL }}
-          WHITELIST_URL: ${{ secrets.WHITELIST_URL }}
-        run: |
-          chmod +x scripts/fetch_data.sh
-          chmod +x scripts/build_index.sh
-          chmod +x scripts/run_alevin_fry.sh
-          jupyter nbconvert --to notebook --execute week6.ipynb --output week6_output.ipynb
-
-      # -------------------------------------------------------------
-      # Upload notebook output using v4 (required)
-      # -------------------------------------------------------------
-      - name: Upload week6 results
-        uses: actions/upload-artifact@v4
-        with:
-          name: week6-results
-          path: week6/week6_output.ipynb
+    # ---------------------------------------------------------
+    # 7. Upload notebook output as artifact
+    # ---------------------------------------------------------
+    - name: Upload result
+      uses: actions/upload-artifact@v4
+      with:
+        name: week6-output
+        path: week6/week6_output.ipynb
