@@ -1,59 +1,68 @@
-name: Run week6 notebook
+name: Github CI
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
+on: [push]
 
 jobs:
-  run-notebook:
+  test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
 
-      # ---------------------------
-      # Install micromamba + create env
-      # ---------------------------
-      - name: Set up micromamba
-        uses: mamba-org/setup-micromamba@v1
+      # -------------------------------------------------------------
+      # Install Salmon (prebuilt binary) + dependencies
+      # -------------------------------------------------------------
+      - name: Install Salmon
+        run: |
+          wget https://github.com/COMBINE-lab/salmon/releases/download/v1.10.2/salmon-1.10.2_linux_x86_64.tar.gz
+          tar -xzf salmon-1.10.2_linux_x86_64.tar.gz
+          sudo mv salmon-1.10.2_linux_x86_64/bin/* /usr/local/bin/
+
+      # -------------------------------------------------------------
+      # Install alevin-fry via Rust/cargo
+      # -------------------------------------------------------------
+      - name: Install alevin-fry
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          cargo install --locked alevin-fry
+          echo "$HOME/.cargo/bin/" >> $GITHUB_PATH
+
+      # -------------------------------------------------------------
+      # Check out code and set up Python
+      # -------------------------------------------------------------
+      - name: Check out repository code
+        uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
         with:
-          micromamba-version: "latest"
-          environment-name: week6
-          create-args: >-
-            python=3.10
-            pandas
-            numpy
-            matplotlib
-            jupyterlab
-            nbconvert
-            salmon=1.10.2
-          channels: conda-forge,bioconda,defaults
-          channel-priority: strict
+          python-version: '3.13'
 
-      - name: Print environment info
-        shell: bash -l {0}
+      - name: Install Python dependencies
         run: |
-          micromamba info
-          micromamba list
+          pip install --upgrade pip
+          pip install jupyter nbconvert anndata scanpy celltypist matplotlib seaborn numpy pandas
 
-      # ---------------------------
-      # Run notebook
-      # ---------------------------
-      - name: Run week6 notebook
-        shell: bash -l {0}
+      - run: echo "💡 Repository cloned."
+
+      - name: Week 6 – Execute notebook
+        working-directory: week6
+        env:
+          BOX_FASTQ_URL: ${{ secrets.BOX_FASTQ_URL }}
+          WHITELIST_URL: ${{ secrets.WHITELIST_URL }}
         run: |
-          jupyter nbconvert \
-            --to notebook \
-            --execute week6.ipynb \
-            --output week6_executed.ipynb
+          chmod +x scripts/fetch_data.sh
+          chmod +x scripts/build_index.sh
+          chmod +x scripts/run_alevin_fry.sh
+          jupyter nbconvert --to notebook --execute week6.ipynb --output week6_output.ipynb
 
-      # ---------------------------
-      # Upload executed notebook
-      # ---------------------------
-      - name: Upload executed notebook
+      # -------------------------------------------------------------
+      # Upload notebook output using v4 (required)
+      # -------------------------------------------------------------
+      - name: Upload week6 results
         uses: actions/upload-artifact@v4
         with:
-          name: week6-output
-          path: week6_executed.ipynb
+          name: week6-results
+          path: week6/week6_output.ipynb
