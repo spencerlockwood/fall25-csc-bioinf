@@ -17,17 +17,29 @@ jobs:
       - name: Install Salmon (build from source)
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libtbb-dev libboost-all-dev zlib1g-dev
       
+          # Required system dependencies
+          sudo apt-get install -y \
+              build-essential \
+              cmake \
+              libtbb-dev \
+              libboost-all-dev \
+              zlib1g-dev \
+              libcurl4-openssl-dev   # <-- REQUIRED FIX
+      
+          # Clone Salmon source
           git clone https://github.com/COMBINE-lab/salmon.git
           cd salmon
           git checkout v1.10.2
       
+          # Build
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=Release ..
           make -j4
       
+          # Install to /usr/local/bin
           sudo make install
+      
 
       # -------------------------------------------------------------
       # Install alevin-fry via Rust/cargo
