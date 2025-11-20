@@ -1,4 +1,4 @@
-name: Week 6 Pipeline
+name: Week6 Pipeline
 
 on:
   push:
@@ -7,79 +7,75 @@ on:
     branches: [ main ]
 
 jobs:
-  run-week6:
+  run-pipeline:
     runs-on: ubuntu-latest
 
     steps:
-    # ---------------------------------------------------------
-    # 1. Checkout repository
-    # ---------------------------------------------------------
-    - name: Checkout
-      uses: actions/checkout@v4
+      # -----------------------------
+      # CHECKOUT REPO
+      # -----------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # ---------------------------------------------------------
-    # 2. Install Mambaforge manually (always works)
-    # ---------------------------------------------------------
-    - name: Install Mambaforge manually
-      shell: bash
-      run: |
-        # Download a stable installer that exists in all current Miniforge releases
-        wget https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-OpenSSL3-Linux-x86_64.sh -O mambaforge.sh
-        
-        # Install silently
-        bash mambaforge.sh -b -p $HOME/mambaforge
-        
-        # Add to PATH
-        echo "$HOME/mambaforge/bin" >> $GITHUB_PATH
-        source $HOME/mambaforge/bin/activate
+      # -----------------------------
+      # INSTALL MINIFORGE (mamba included)
+      # -----------------------------
+      - name: Install Miniforge
+        shell: bash
+        run: |
+          wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O miniforge.sh
+          bash miniforge.sh -b -p $HOME/miniforge
+          echo "$HOME/miniforge/bin" >> $GITHUB_PATH
 
+      # -----------------------------
+      # INITIALIZE CONDA
+      # -----------------------------
+      - name: Initialize conda
+        shell: bash
+        run: |
+          source $HOME/miniforge/bin/activate
+          conda init bash
 
-    # ---------------------------------------------------------
-    # 3. Create conda env and install salmon/alevin-fry
-    # ---------------------------------------------------------
-    - name: Create scenv environment
-      shell: bash
-      run: |
-        source $HOME/mambaforge/bin/activate
-        mamba create -y -n scenv python=3.10
-        conda activate scenv
-        mamba install -y -c bioconda -c conda-forge \
-            salmon=1.10.2 \
-            alevin-fry \
-            anndata \
-            scanpy \
-            celltypist \
-            igraph \
-            leidenalg
+      # -----------------------------
+      # CREATE ENV + INSTALL TOOLS
+      # -----------------------------
+      - name: Create scenv with Salmon & Alevin-fry
+        shell: bash
+        run: |
+          source $HOME/miniforge/bin/activate
+          mamba create -y -n scenv python=3.10
+          mamba install -y -n scenv -c bioconda -c conda-forge salmon alevin-fry
 
-    # ---------------------------------------------------------
-    # 4. Install pip dependencies
-    # ---------------------------------------------------------
-    - name: Install pip deps
-      shell: bash
-      run: |
-        source $HOME/mambaforge/bin/activate
-        conda activate scenv
-        pip install jupyter papermill nbconvert
+      # -----------------------------
+      # CACHE THE ENVIRONMENT (SPEED UP FUTURE RUNS)
+      # -----------------------------
+      - name: Cache conda environment
+        id: cache-conda
+        uses: actions/cache@v4
+        with:
+          path: $HOME/miniforge/envs/scenv
+          key: ${{ runner.os }}-scenv-${{ hashFiles('**/environment.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-scenv-
 
-    # ---------------------------------------------------------
-    # 5. Execute notebook
-    # ---------------------------------------------------------
-    - name: Execute week6 notebook
-      shell: bash
-      env:
-        BOX_FASTQ_URL: ${{ secrets.BOX_FASTQ_URL }}
-        WHITELIST_URL: ${{ secrets.WHITELIST_URL }}
-      run: |
-        source $HOME/mambaforge/bin/activate
-        conda activate scenv
-        papermill week6/week6.ipynb week6/week6_output.ipynb
+      # -----------------------------
+      # RUN WEEK 6 PIPELINE
+      # -----------------------------
+      - name: Run Week 6 pipeline
+        shell: bash
+        run: |
+          source $HOME/miniforge/bin/activate scenv
+          python week6_pipeline.py
 
-    # ---------------------------------------------------------
-    # 6. Upload artifact
-    # ---------------------------------------------------------
-    - name: Upload result
-      uses: actions/upload-artifact@v4
-      with:
-        name: week6-output
-        path: week6/week6_output.ipynb
+      # -----------------------------
+      # UPLOAD RESULTS
+      # -----------------------------
+      - name: Upload pipeline results
+        uses: actions/upload-artifact@v4
+        with:
+          name: week6-results
+          path: |
+            results/
+            output/
+            *.txt
+            *.csv
