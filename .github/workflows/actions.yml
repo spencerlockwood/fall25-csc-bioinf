@@ -1,41 +1,65 @@
-name: Github CI
-on: [push]
+name: week6-pipeline
+
+on:
+  push:
+    paths:
+      - "week6/**"
+      - ".github/workflows/actions.yml"
+  pull_request:
+
 jobs:
-  test:
+  run-week6:
     runs-on: ubuntu-latest
+
+    env:
+      BOX_FASTQ_URL: ${{ secrets.BOX_FASTQ_URL }}
+      WHITELIST_URL: ${{ secrets.WHITELIST_URL }}
+
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # 4. Check out repository code
-      - name: Check out repository
-        uses: actions/checkout@v5
-
-      # 5. Set up Python 3
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.13"
+          python-version: "3.10"
 
-      # 6. Install Python dependencies for notebook
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install pandas matplotlib jupyter nbconvert
+          pip install jupyter nbconvert anndata scanpy celltypist matplotlib seaborn numpy pandas
 
-      # 7. Confirm the notebook exists
-      - name: Check for notebook
+      - name: Install alevin-fry + salmon + dependencies
         run: |
-          if [ -f week5/week5.ipynb ]; then
-            echo "✅ week5.ipynb found!"
-          else
-            echo "❌ week5.ipynb not found!"
-            exit 1
-          fi
+          sudo apt-get update
+          sudo apt-get install -y curl unzip tar wget gzip
 
-      # 8. Optional: Convert notebook to HTML as a test
-      - name: Test notebook conversion
+          # Install Rust (needed for alevin-fry)
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+
+          # Install alevin-fry
+          cargo install --locked alevin-fry
+
+          # Install salmon (for building the index)
+          wget https://github.com/COMBINE-lab/salmon/releases/download/v1.10.2/salmon-1.10.2_linux_x86_64.tar.gz
+          tar -xzf salmon-1.10.2_linux_x86_64.tar.gz
+          sudo mv salmon-1.10.2_linux_x86_64/bin/salmon /usr/local/bin/
+
+      - name: Make scripts executable
+        working-directory: week6
         run: |
-          jupyter nbconvert --to html week5/week5.ipynb
-          echo "Notebook successfully converted to HTML"
+          chmod +x scripts/fetch_data.sh
+          chmod +x scripts/build_index.sh
+          chmod +x scripts/run_alevin_fry.sh
+
+      - name: Run Jupyter notebook
+        working-directory: week6
+        run: |
+          jupyter nbconvert --to notebook --execute week6.ipynb --output week6_output.ipynb
+
+      - name: Upload executed notebook as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: week6-results
+          path: week6/week6_output.ipynb

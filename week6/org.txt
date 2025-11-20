@@ -1,0 +1,10 @@
+week6/
+├── week6.ipynb            # REQUIRED: single self-contained notebook (fetches data, runs alevin-fry, clustering, annotation)
+├── ci.yml                 # GitHub Actions workflow: sets up environment, installs deps/tools, runs `jupyter nbconvert --execute`
+├── environment.yml        # Conda/mamba channels + packages used by the notebook (python packages + micromamba/mamba optional)
+├── scripts/
+│   ├── fetch_data.sh      # small helper to download the Box archive / whitelist file (called from notebook or CI)
+│   ├── build_index.sh     # optional: build splici index or transcriptome index used by alevin-fry
+│   └── run_alevin_fry.sh  # wrapper script to run the alevin-fry pipeline (RAD generation, permit list, collate, quant)
+├── ai.md                  # required if AI tools were used (short note of prompts/usage)
+└── README.md    
