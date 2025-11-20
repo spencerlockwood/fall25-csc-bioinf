@@ -29,22 +29,34 @@ jobs:
           pip install --upgrade pip
           pip install jupyter nbconvert anndata scanpy celltypist matplotlib seaborn numpy pandas
 
-      - name: Install alevin-fry + salmon + dependencies
+      - name: Install Salmon + alevin-fry (Conda + Rust)
         run: |
           sudo apt-get update
           sudo apt-get install -y curl unzip tar wget gzip
 
-          # Install Rust (needed for alevin-fry)
+          # -------------------------------
+          # Install Conda
+          # -------------------------------
+          wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+          bash Miniconda3-latest-Linux-x86_64.sh -b -p $HOME/miniconda
+          echo "$HOME/miniconda/bin" >> $GITHUB_PATH
+          source $HOME/miniconda/bin/activate
+
+          conda config --add channels defaults
+          conda config --add channels bioconda
+          conda config --add channels conda-forge
+
+          # -------------------------------
+          # Install Salmon (stable, never 404s)
+          # -------------------------------
+          conda install -y salmon=1.10.2
+
+          # -------------------------------
+          # Install Rust + alevin-fry
+          # -------------------------------
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
-
-          # Install alevin-fry
           cargo install --locked alevin-fry
-
-          # Install salmon (for building the index)
-          wget https://github.com/COMBINE-lab/salmon/releases/download/v1.10.2/salmon-1.10.2_linux_x86_64.tar.gz
-          tar -xzf salmon-1.10.2_linux_x86_64.tar.gz
-          sudo mv salmon-1.10.2_linux_x86_64/bin/salmon /usr/local/bin/
 
       - name: Make scripts executable
         working-directory: week6
