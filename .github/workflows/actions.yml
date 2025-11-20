@@ -14,47 +14,36 @@ jobs:
         uses: actions/checkout@v4
 
       # ---------------------------
-      # Install Mambaforge (faster, avoids libmamba conflicts)
+      # Install micromamba + create env
       # ---------------------------
-      - name: Set up Mambaforge
-        uses: conda-incubator/setup-miniconda@v2
+      - name: Set up micromamba
+        uses: mamba-org/setup-micromamba@v1
         with:
-          installer: Mambaforge
-          auto-update-conda: true
-          use-mamba: true
+          micromamba-version: "latest"
+          environment-name: week6
+          create-args: >-
+            python=3.10
+            pandas
+            numpy
+            matplotlib
+            jupyterlab
+            nbconvert
+            salmon=1.10.2
           channels: conda-forge,bioconda,defaults
           channel-priority: strict
-          # No python pin — avoids solver conflicts
-          python-version: "3.10"
 
-      - name: Check conda info
+      - name: Print environment info
         shell: bash -l {0}
         run: |
-          conda info
-          conda config --show
+          micromamba info
+          micromamba list
 
       # ---------------------------
-      # Create environment
+      # Run notebook
       # ---------------------------
-      - name: Create conda environment
+      - name: Run week6 notebook
         shell: bash -l {0}
         run: |
-          mamba create -y -n week6 python=3.10 \
-            salmon=1.10.2 \
-            pandas \
-            numpy \
-            matplotlib \
-            jupyterlab
-
-      - name: Activate environment and run notebook
-        shell: bash -l {0}
-        run: |
-          source activate week6
-
-          # Install jupyter nbconvert for CLI execution
-          mamba install -y nbconvert
-
-          # Run notebook
           jupyter nbconvert \
             --to notebook \
             --execute week6.ipynb \
@@ -63,7 +52,7 @@ jobs:
       # ---------------------------
       # Upload executed notebook
       # ---------------------------
-      - name: Upload executed notebook artifact
+      - name: Upload executed notebook
         uses: actions/upload-artifact@v4
         with:
           name: week6-output
