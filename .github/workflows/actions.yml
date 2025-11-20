@@ -14,11 +14,14 @@ jobs:
       # -------------------------------------------------------------
       # Install Salmon (prebuilt binary) + dependencies
       # -------------------------------------------------------------
-      - name: Install Salmon
+      - name: Install Salmon via conda
         run: |
-          wget https://github.com/COMBINE-lab/salmon/releases/download/v1.10.2/salmon-1.10.2_linux_x86_64.tar.gz
-          tar -xzf salmon-1.10.2_linux_x86_64.tar.gz
-          sudo mv salmon-1.10.2_linux_x86_64/bin/* /usr/local/bin/
+          wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+          bash miniconda.sh -b -p $HOME/miniconda
+          echo "$HOME/miniconda/bin" >> $GITHUB_PATH
+          $HOME/miniconda/bin/conda config --add channels conda-forge
+          $HOME/miniconda/bin/conda config --add channels bioconda
+          $HOME/miniconda/bin/conda install -y salmon=1.10.2
 
       # -------------------------------------------------------------
       # Install alevin-fry via Rust/cargo
