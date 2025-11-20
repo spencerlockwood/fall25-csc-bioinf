@@ -1,77 +1,70 @@
-name: week6-pipeline
+name: Run week6 notebook
 
 on:
   push:
-    paths:
-      - "week6/**"
-      - ".github/workflows/actions.yml"
+    branches: [ main ]
   pull_request:
 
 jobs:
-  run-week6:
+  run-notebook:
     runs-on: ubuntu-latest
 
-    env:
-      BOX_FASTQ_URL: ${{ secrets.BOX_FASTQ_URL }}
-      WHITELIST_URL: ${{ secrets.WHITELIST_URL }}
-
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+      # ---------------------------
+      # Install Mambaforge (faster, avoids libmamba conflicts)
+      # ---------------------------
+      - name: Set up Mambaforge
+        uses: conda-incubator/setup-miniconda@v2
         with:
+          installer: Mambaforge
+          auto-update-conda: true
+          use-mamba: true
+          channels: conda-forge,bioconda,defaults
+          channel-priority: strict
+          # No python pin — avoids solver conflicts
           python-version: "3.10"
 
-      - name: Install Python dependencies
+      - name: Check conda info
+        shell: bash -l {0}
         run: |
-          pip install --upgrade pip
-          pip install jupyter nbconvert anndata scanpy celltypist matplotlib seaborn numpy pandas
+          conda info
+          conda config --show
 
-      - name: Install Salmon + alevin-fry (Conda + Rust)
+      # ---------------------------
+      # Create environment
+      # ---------------------------
+      - name: Create conda environment
+        shell: bash -l {0}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y curl unzip tar wget gzip
+          mamba create -y -n week6 python=3.10 \
+            salmon=1.10.2 \
+            pandas \
+            numpy \
+            matplotlib \
+            jupyterlab
 
-          # -------------------------------
-          # Install Conda
-          # -------------------------------
-          wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-          bash Miniconda3-latest-Linux-x86_64.sh -b -p $HOME/miniconda
-          echo "$HOME/miniconda/bin" >> $GITHUB_PATH
-          source $HOME/miniconda/bin/activate
-
-          conda config --add channels defaults
-          conda config --add channels bioconda
-          conda config --add channels conda-forge
-
-          # -------------------------------
-          # Install Salmon (stable, never 404s)
-          # -------------------------------
-          conda install -y salmon=1.10.2
-
-          # -------------------------------
-          # Install Rust + alevin-fry
-          # -------------------------------
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          source $HOME/.cargo/env
-          cargo install --locked alevin-fry
-
-      - name: Make scripts executable
-        working-directory: week6
+      - name: Activate environment and run notebook
+        shell: bash -l {0}
         run: |
-          chmod +x scripts/fetch_data.sh
-          chmod +x scripts/build_index.sh
-          chmod +x scripts/run_alevin_fry.sh
+          source activate week6
 
-      - name: Run Jupyter notebook
-        working-directory: week6
-        run: |
-          jupyter nbconvert --to notebook --execute week6.ipynb --output week6_output.ipynb
+          # Install jupyter nbconvert for CLI execution
+          mamba install -y nbconvert
 
-      - name: Upload executed notebook as artifact
+          # Run notebook
+          jupyter nbconvert \
+            --to notebook \
+            --execute week6.ipynb \
+            --output week6_executed.ipynb
+
+      # ---------------------------
+      # Upload executed notebook
+      # ---------------------------
+      - name: Upload executed notebook artifact
         uses: actions/upload-artifact@v4
         with:
-          name: week6-results
-          path: week6/week6_output.ipynb
+          name: week6-output
+          path: week6_executed.ipynb
