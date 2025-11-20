@@ -1,81 +1,92 @@
-name: Week6 Pipeline
+name: Week 6 Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
 
 jobs:
-  run-pipeline:
+  week6:
     runs-on: ubuntu-latest
 
     steps:
-      # -----------------------------
-      # CHECKOUT REPO
-      # -----------------------------
+      # ----------------------------------------------------
+      # 1. Checkout repository
+      # ----------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # -----------------------------
-      # INSTALL MINIFORGE (mamba included)
-      # -----------------------------
-      - name: Install Miniforge
+      # ----------------------------------------------------
+      # 2. Install Miniforge manually (stable link)
+      # ----------------------------------------------------
+      - name: Install Miniforge (Python + Mamba)
         shell: bash
         run: |
+          set -e
           wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O miniforge.sh
           bash miniforge.sh -b -p $HOME/miniforge
-          echo "$HOME/miniforge/bin" >> $GITHUB_PATH
-
-      # -----------------------------
-      # INITIALIZE CONDA
-      # -----------------------------
-      - name: Initialize conda
-        shell: bash
-        run: |
-          source $HOME/miniforge/bin/activate
+          source "$HOME/miniforge/etc/profile.d/conda.sh"
           conda init bash
 
-      # -----------------------------
-      # CREATE ENV + INSTALL TOOLS
-      # -----------------------------
-      - name: Create scenv with Salmon & Alevin-fry
+      # ----------------------------------------------------
+      # 3. Create conda environment with all needed tools
+      # ----------------------------------------------------
+      - name: Create conda environment with Salmon, Alevin-fry, Scanpy, Jupyter
         shell: bash
         run: |
-          source $HOME/miniforge/bin/activate
+          source "$HOME/miniforge/etc/profile.d/conda.sh"
           mamba create -y -n scenv python=3.10
-          mamba install -y -n scenv -c bioconda -c conda-forge salmon alevin-fry
+          mamba install -y -n scenv -c bioconda -c conda-forge \
+              salmon alevin-fry \
+              scanpy anndata pandas numpy scipy \
+              jupyter nbconvert matplotlib seaborn
 
-      # -----------------------------
-      # CACHE THE ENVIRONMENT (SPEED UP FUTURE RUNS)
-      # -----------------------------
-      - name: Cache conda environment
-        id: cache-conda
-        uses: actions/cache@v4
-        with:
-          path: $HOME/miniforge/envs/scenv
-          key: ${{ runner.os }}-scenv-${{ hashFiles('**/environment.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-scenv-
-
-      # -----------------------------
-      # RUN WEEK 6 PIPELINE
-      # -----------------------------
-      - name: Run Week 6 pipeline
+      # ----------------------------------------------------
+      # 4. Run Week 6 shell scripts
+      # ----------------------------------------------------
+      - name: Run Week 6 pipeline scripts
         shell: bash
         run: |
-          source $HOME/miniforge/bin/activate scenv
-          python week6_pipeline.py
+          source "$HOME/miniforge/etc/profile.d/conda.sh"
+          conda activate scenv
 
-      # -----------------------------
-      # UPLOAD RESULTS
-      # -----------------------------
-      - name: Upload pipeline results
+          cd week6
+          chmod +x scripts/*.sh
+
+          echo "==== Running fetch_data.sh ===="
+          ./scripts/fetch_data.sh
+
+          echo "==== Running build_index.sh ===="
+          ./scripts/build_index.sh
+
+          echo "==== Running run_alevin_fry.sh ===="
+          ./scripts/run_alevin_fry.sh
+
+      # ----------------------------------------------------
+      # 5. Execute the Jupyter notebook (required for full marks)
+      # ----------------------------------------------------
+      - name: Execute week6.ipynb
+        shell: bash
+        run: |
+          source "$HOME/miniforge/etc/profile.d/conda.sh"
+          conda activate scenv
+
+          cd week6
+          jupyter nbconvert --execute --to notebook \
+              --ExecutePreprocessor.timeout=1800 \
+              --output executed_week6.ipynb \
+              week6.ipynb
+
+      # ----------------------------------------------------
+      # 6. Upload all outputs as GitHub artifacts
+      # ----------------------------------------------------
+      - name: Upload outputs
         uses: actions/upload-artifact@v4
         with:
           name: week6-results
           path: |
-            results/
-            output/
-            *.txt
-            *.csv
+            week6/executed_week6.ipynb
+            week6/data/**
+            week6/out/**
+            week6/logs/**
+          retention-days: 30
