@@ -13,11 +13,18 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v4
 
-    - name: Install Mamba
+    # -----------------------------------------
+    # Correct Mambaforge installation
+    # -----------------------------------------
+    - name: Install Mamba (Mambaforge)
       run: |
-        sudo apt-get update
-        sudo apt-get install -y mambaforge
+        wget https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh
+        bash Mambaforge-Linux-x86_64.sh -b -p $HOME/mambaforge
+        echo "$HOME/mambaforge/bin" >> $GITHUB_PATH
 
+    # -----------------------------------------
+    # Create environment & install frytools
+    # -----------------------------------------
     - name: Create scenv environment
       shell: bash -l {0}
       run: |
@@ -37,6 +44,9 @@ jobs:
         source activate scenv
         pip install frytools
 
+    # -----------------------------------------
+    # Run your shell scripts
+    # -----------------------------------------
     - name: Run Week 6 shell scripts
       shell: bash -l {0}
       run: |
@@ -51,6 +61,9 @@ jobs:
         echo "=== Running run_alevin_fry.sh ==="
         bash scripts/run_alevin_fry.sh
 
+    # -----------------------------------------
+    # Execute the notebook
+    # -----------------------------------------
     - name: Install Jupyter + nbconvert
       shell: bash -l {0}
       run: |
@@ -63,6 +76,9 @@ jobs:
         source activate scenv
         jupyter nbconvert --to notebook --execute week6.ipynb --output week6_output.ipynb
 
+    # -----------------------------------------
+    # Upload artifacts
+    # -----------------------------------------
     - name: Upload results
       uses: actions/upload-artifact@v4
       with:
