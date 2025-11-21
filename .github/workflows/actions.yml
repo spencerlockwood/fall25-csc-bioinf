@@ -33,16 +33,16 @@ jobs:
             jupyter \
             nbconvert
 
-      - name: Install Python packages
+      - name: Install Python packages with compatible versions
         run: |
+          pip install "numpy<2.0"
           pip install \
             scanpy \
             pyroe \
             celltypist \
             leidenalg \
             matplotlib \
-            pandas \
-            numpy
+            pandas
 
       - name: Execute notebook
         run: |
