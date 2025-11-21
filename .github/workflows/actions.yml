@@ -10,14 +10,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       # ----------------------------------------------------
-      # 1. Checkout repo
+      # 1. Checkout repository
       # ----------------------------------------------------
       - name: Checkout repo
         uses: actions/checkout@v4
 
       # ----------------------------------------------------
-      # 2. Install Miniforge (this version always worked)
+      # 2. Install Miniforge (this method you confirmed works)
       # ----------------------------------------------------
       - name: Install Miniforge
         shell: bash
@@ -29,34 +30,26 @@ jobs:
           conda init bash
 
       # ----------------------------------------------------
-      # 3. Create scenv and install dependencies
-      #    IMPORTANT: Salmon must install ALONE first.
+      # 3. Create scenv environment + install tools
       # ----------------------------------------------------
       - name: Create scenv environment
         shell: bash
         run: |
-          set -e
           source "$HOME/miniforge/etc/profile.d/conda.sh"
-
-          # Create empty environment
           mamba create -y -n scenv python=3.10
-          
-          # STEP 1 — Install Salmon ALONE so it cannot be downgraded
-          mamba install -y -n scenv -c conda-forge -c bioconda salmon=1.10.2
-          
-          # STEP 2 — Install the rest
-          mamba install -y -n scenv -c conda-forge -c bioconda \
+          mamba install -y -n scenv -c bioconda -c conda-forge \
+            salmon \
             alevin-fry \
-            scanpy anndata numpy pandas scipy matplotlib seaborn
+            scanpy anndata pandas numpy scipy \
+            jupyter nbconvert matplotlib seaborn
 
       # ----------------------------------------------------
-      # 4. Run Week 6 shell scripts
+      # 4. Run Week 6 fetch/build/quant scripts
       # ----------------------------------------------------
-      - name: Run Week 6 pipeline scripts
+      - name: Run fetch/build/quant scripts
         shell: bash
         run: |
           set -euo pipefail
-
           source "$HOME/miniforge/etc/profile.d/conda.sh"
           conda activate scenv
 
@@ -73,7 +66,7 @@ jobs:
           ./scripts/run_alevin_fry.sh
 
       # ----------------------------------------------------
-      # 5. Execute Jupyter Notebook
+      # 5. Execute Jupyter notebook
       # ----------------------------------------------------
       - name: Execute week6.ipynb
         shell: bash
@@ -89,15 +82,16 @@ jobs:
             week6.ipynb
 
       # ----------------------------------------------------
-      # 6. Upload results
+      # 6. Upload outputs
       # ----------------------------------------------------
-      - name: Upload outputs
+      - name: Upload results
         uses: actions/upload-artifact@v4
         with:
           name: week6-results
           path: |
             week6/executed_week6.ipynb
-            week6/data/**
             week6/out/**
-            week6/logs/**
-          retention-days: 30
+            week6/index/**
+            week6/splici/**
+            week6/af_output/**
+            week6/data/**

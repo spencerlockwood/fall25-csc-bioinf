@@ -1,40 +1,33 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-R1=data/selected_R1_reads.fastq.gz
-R2=data/selected_R2_reads.fastq.gz
-WL=data/whitelist.txt.gz
-INDEX=index/splici_index
+echo "[alevin-fry] Starting quantification..."
 
-if [[ ! -f $WL ]]; then
-    echo "[ERROR] Whitelist not found: $WL"
-    exit 1
-fi
+R1="reads_R1.fastq"
+R2="reads_R2.fastq"
+INDEX="index/splici_index"
 
-if [[ ! -d $INDEX ]]; then
-    echo "[ERROR] Splici index not found: $INDEX"
-    exit 1
-fi
+if [[ ! -f "$R1" ]]; then echo "[ERROR] Missing $R1"; exit 1; fi
+if [[ ! -f "$R2" ]]; then echo "[ERROR] Missing $R2"; exit 1; fi
+if [[ ! -d "$INDEX" ]]; then echo "[ERROR] Missing index: $INDEX"; exit 1; fi
 
 mkdir -p af_output
 
-echo "[alevin-fry] Generating RAD file with Salmon..."
+echo "[alevin-fry] Running Salmon alevin (RAD generation)..."
 salmon alevin \
     -l ISR \
     -i "$INDEX" \
     --chromium \
     -1 "$R1" \
     -2 "$R2" \
-    --whitelist "$WL" \
-    -p 8 \
+    -p 4 \
     -o af_output/salmon_alevin
 
-echo "[alevin-fry] Generating permit list..."
+echo "[alevin-fry] Permit-list generation..."
 alevin-fry generate-permit-list \
     -i af_output/salmon_alevin \
     -o af_output/permit \
-    --inspect \
-    --expect-cells 3000
+    --expect-cells 300
 
 echo "[alevin-fry] Collating RAD..."
 alevin-fry collate \
