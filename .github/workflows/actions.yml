@@ -1,120 +1,63 @@
-name: Week 6 Pipeline
+name: week6 workflow
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
   workflow_dispatch:
 
 jobs:
-  week6:
+  run-week6:
     runs-on: ubuntu-latest
 
     steps:
-
-      # ----------------------------------------------------
-      # 1. Checkout repo
-      # ----------------------------------------------------
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-      # ----------------------------------------------------
-      # 2. Install Miniforge (this version WORKS)
-      # ----------------------------------------------------
-      - name: Install Miniforge
-        shell: bash
+      - name: Install dependencies
         run: |
-          set -e
-          wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O miniforge.sh
-          bash miniforge.sh -b -p $HOME/miniforge
-          source "$HOME/miniforge/etc/profile.d/conda.sh"
-          conda init bash
+          sudo apt-get update
+          sudo apt-get install -y wget curl tar gzip
 
+          # Install alevin-fry & salmon
+          pip install alevin-fry
 
-      # ----------------------------------------------------
-      # 3. Create scenv conda env + install packages
-      # ----------------------------------------------------
-      - name: Create scenv environment
-        shell: bash
+          wget https://github.com/COMBINE-lab/salmon/releases/download/v1.10.2/salmon-1.10.2_linux_x86_64.tar.gz
+          tar -xzf salmon-1.10.2_linux_x86_64.tar.gz
+          echo "$PWD/salmon-1.10.2_linux_x86_64/bin" >> $GITHUB_PATH
+
+      - name: Extract toy dataset
         run: |
-          source "$HOME/miniforge/etc/profile.d/conda.sh"
-
-          # Create env
-          mamba create -y -n scenv python=3.10
-
-          # Install tools needed for Week 6
-          mamba install -y -n scenv -c bioconda -c conda-forge \
-            salmon alevin-fry \
-            scanpy anndata pandas numpy scipy scikit-learn \
-            jupyter nbconvert matplotlib seaborn
-
-
-      # ----------------------------------------------------
-      # 4. Extract the LOCAL dataset (replaces fetch_data.sh)
-      # ----------------------------------------------------
-      - name: Extract local dataset
-        shell: bash
-        run: |
-          set -e
-          echo "Extracting toy_read_ref_set.tar.gz..."
           cd week6/data
+          tar -xzf toy_read_ref_set.tar.gz
 
-          tar -xvf toy_read_ref_set.tar.gz
-
-          echo "Dataset extracted. Directory now contains:"
-          ls -R .
-
-
-      # ----------------------------------------------------
-      # 5. Run Week 6 pipeline shell scripts
-      # ----------------------------------------------------
-      - name: Run Week 6 shell scripts
-        shell: bash
+      - name: Run build_index.sh
         run: |
           set -e
-          source "$HOME/miniforge/etc/profile.d/conda.sh"
-          conda activate scenv
-
-          cd week6
-          chmod +x scripts/*.sh
-
-          # The download step is skipped — we already extracted the tarball.
-
           echo "=== Running build_index.sh ==="
-          ./scripts/build_index.sh
 
-          echo "=== Running run_alevin_fry.sh ==="
-          ./scripts/run_alevin_fry.sh
+          bash week6/scripts/build_index.sh \
+            data/toy_ref_read/toy_human_ref/fasta/genome.fa \
+            data/toy_ref_read/toy_human_ref/genes/genes.gtf \
+            index
 
-
-      # ----------------------------------------------------
-      # 6. Execute week6.ipynb (clustering + annotation)
-      # ----------------------------------------------------
-      - name: Execute week6.ipynb
-        shell: bash
+      - name: Run alevin-fry
         run: |
           set -e
-          source "$HOME/miniforge/etc/profile.d/conda.sh"
-          conda activate scenv
+          echo "=== Running run_alevin_fry.sh ==="
 
-          cd week6
-          jupyter nbconvert --execute --to notebook \
-            --ExecutePreprocessor.timeout=1800 \
-            --output executed_week6.ipynb \
-            week6.ipynb
+          bash week6/scripts/run_alevin_fry.sh \
+            data/toy_ref_read/toy_read_fastq/selected_R1_reads.fastq \
+            data/toy_ref_read/toy_read_fastq/selected_R2_reads.fastq \
+            index \
+            output
 
-
-      # ----------------------------------------------------
-      # 7. Upload notebook and outputs
-      # ----------------------------------------------------
       - name: Upload outputs
         uses: actions/upload-artifact@v4
         with:
           name: week6-results
           path: |
-            week6/executed_week6.ipynb
-            week6/data/**
-            week6/out/**
-            week6/logs/**
-          retention-days: 30
+            index/
+            output/
