@@ -3,34 +3,39 @@ set -euo pipefail
 
 echo "[build_index] Building splici reference..."
 
-mkdir -p index
-mkdir -p splici
-
-FA=data/genome.fa
+GENOME=data/genome.fa
 GTF=data/genes.gtf
+SPLICI_DIR=splici
+INDEX_DIR=index
 
-if [[ ! -f "$FA" ]]; then
-    echo "[ERROR] Missing reference FASTA: $FA"
+if [[ ! -f "$GENOME" ]]; then
+    echo "Error:  Missing reference FASTA: $GENOME"
     exit 1
 fi
 
 if [[ ! -f "$GTF" ]]; then
-    echo "[ERROR] Missing GTF: $GTF"
+    echo "Error:  Missing GTF: $GTF"
     exit 1
 fi
 
-echo "[build_index] Generating splici transcriptome with salmon..."
-salmon splici \
-    -r "$FA" \
-    -g "$GTF" \
-    -o splici \
-    --flank-trim-length 5
+mkdir -p $SPLICI_DIR
+mkdir -p $INDEX_DIR
 
-echo "[build_index] Building Salmon index..."
+echo "[build_index] Generating splici transcriptome with salmon..."
+
+# Modern splici reference construction
+salmon alevin generate-splici \
+    --transcriptome $GENOME \
+    --gtf $GTF \
+    --output $SPLICI_DIR \
+    --flank-length 91
+
+echo "[build_index] Building Salmon index with pufferfish..."
+
 salmon index \
-    -t splici/splici.fa \
-    -i index/splici_index \
-    --type quasi \
-    -k 31
+    -t $SPLICI_DIR/splici.fa \
+    -d $SPLICI_DIR/splici.dfa \
+    -i $INDEX_DIR \
+    -p 4
 
 echo "[build_index] Done."
