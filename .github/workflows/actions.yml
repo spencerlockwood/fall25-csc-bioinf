@@ -56,5 +56,4 @@ jobs:
           name: notebook-results
           path: |
             week6/week6.ipynb
-            week6/sc_analysis/*.png
           retention-days: 7
