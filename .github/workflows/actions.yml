@@ -1,97 +1,60 @@
-name: Week 6 Pipeline
+name: Week 6 - Single-Cell RNA-seq Pipeline
 
 on:
   push:
     branches: [ main, master ]
   pull_request:
+    branches: [ main, master ]
 
 jobs:
-  week6:
+  run-notebook:
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        shell: bash -l {0}
+    
     steps:
-
-      # ----------------------------------------------------
-      # 1. Checkout repository
-      # ----------------------------------------------------
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ----------------------------------------------------
-      # 2. Install Miniforge (this method you confirmed works)
-      # ----------------------------------------------------
-      - name: Install Miniforge
-        shell: bash
-        run: |
-          set -e
-          wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O miniforge.sh
-          bash miniforge.sh -b -p $HOME/miniforge
-          source "$HOME/miniforge/etc/profile.d/conda.sh"
-          conda init bash
+      - name: Setup Miniforge (Conda)
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: sc-analysis
+          python-version: "3.10"
+          auto-activate-base: false
+          use-mamba: true
 
-      # ----------------------------------------------------
-      # 3. Create scenv environment + install tools
-      # ----------------------------------------------------
-      - name: Create scenv environment
-        shell: bash
+      - name: Install bioinformatics tools
         run: |
-          source "$HOME/miniforge/etc/profile.d/conda.sh"
-          mamba create -y -n scenv python=3.10
-          mamba install -y -n scenv -c bioconda -c conda-forge \
-            salmon \
-            alevin-fry \
-            scanpy anndata pandas numpy scipy \
-            jupyter nbconvert matplotlib seaborn
+          mamba install -y -c bioconda -c conda-forge \
+            simpleaf \
+            jupyter \
+            nbconvert
 
-      # ----------------------------------------------------
-      # 4. Run Week 6 fetch/build/quant scripts
-      # ----------------------------------------------------
-      - name: Run fetch/build/quant scripts
-        shell: bash
+      - name: Install Python packages
         run: |
-          set -euo pipefail
-          source "$HOME/miniforge/etc/profile.d/conda.sh"
-          conda activate scenv
+          pip install \
+            scanpy \
+            pyroe \
+            celltypist \
+            leidenalg \
+            matplotlib \
+            pandas \
+            numpy
 
+      - name: Execute notebook
+        run: |
           cd week6
-          chmod +x scripts/*.sh
+          jupyter execute week6.ipynb --timeout=1800
 
-          echo "=== Running fetch_data.sh ==="
-          ./scripts/fetch_data.sh
-
-          echo "=== Running build_index.sh ==="
-          ./scripts/build_index.sh
-
-          echo "=== Running run_alevin_fry.sh ==="
-          ./scripts/run_alevin_fry.sh
-
-      # ----------------------------------------------------
-      # 5. Execute Jupyter notebook
-      # ----------------------------------------------------
-      - name: Execute week6.ipynb
-        shell: bash
-        run: |
-          set -e
-          source "$HOME/miniforge/etc/profile.d/conda.sh"
-          conda activate scenv
-
-          cd week6
-          jupyter nbconvert --execute --to notebook \
-            --ExecutePreprocessor.timeout=1800 \
-            --output executed_week6.ipynb \
-            week6.ipynb
-
-      # ----------------------------------------------------
-      # 6. Upload outputs
-      # ----------------------------------------------------
       - name: Upload results
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: week6-results
+          name: notebook-results
           path: |
-            week6/executed_week6.ipynb
-            week6/out/**
-            week6/index/**
-            week6/splici/**
-            week6/af_output/**
-            week6/data/**
+            week6/week6.ipynb
+            week6/sc_analysis/*.png
+          retention-days: 7
