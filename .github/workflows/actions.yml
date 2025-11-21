@@ -1,88 +1,140 @@
-name: Week 6 RNA-seq Pipeline
+name: Week 6 Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
-  run-week6:
+  week6:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-    # -----------------------------------------
-    # Correct Mambaforge installation
-    # -----------------------------------------
-    - name: Install Mamba (Mambaforge)
-      run: |
-        wget https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh
-        bash Mambaforge-Linux-x86_64.sh -b -p $HOME/mambaforge
-        echo "$HOME/mambaforge/bin" >> $GITHUB_PATH
+      # -------------------------
+      # Install Miniforge (stable installer)
+      # -------------------------
+      - name: Install Miniforge (stable)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Downloading Miniforge installer..."
+          wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O miniforge.sh
+          echo "Installing Miniforge..."
+          bash miniforge.sh -b -p "$HOME/miniforge"
+          echo "Adding Miniforge to PATH..."
+          echo "$HOME/miniforge/bin" >> $GITHUB_PATH
+          # make sure future steps have conda available immediately
+          source "$HOME/miniforge/etc/profile.d/conda.sh" || true
+          conda --version
 
-    # -----------------------------------------
-    # Create environment & install frytools
-    # -----------------------------------------
-    - name: Create scenv environment
-      shell: bash -l {0}
-      run: |
-        mamba create -y -n scenv python=3.10 \
-          alevin-fry \
-          salmon \
-          fastqc \
-          multiqc \
-          scanpy \
-          anndata \
-          pandas \
-          numpy \
-          matplotlib \
-          seaborn \
-          pip
+      # -------------------------
+      # Ensure mamba is available in base (install via conda-forge)
+      # -------------------------
+      - name: Install mamba into base
+        shell: bash -l {0}
+        run: |
+          set -euo pipefail
+          source "$HOME/miniforge/etc/profile.d/conda.sh"
+          # prefer conda-forge mamba for speed/solver
+          conda install -y -n base -c conda-forge mamba
+          mamba --version
 
-        source activate scenv
-        pip install frytools
+      # -------------------------
+      # Create env and install tools with mamba
+      # -------------------------
+      - name: Create scenv and install bioinformatics tools
+        shell: bash -l {0}
+        run: |
+          set -euo pipefail
+          source "$HOME/miniforge/etc/profile.d/conda.sh"
+          # create environment
+          mamba create -y -n scenv python=3.10
+          # install core tools from bioconda/conda-forge
+          mamba install -y -n scenv -c bioconda -c conda-forge \
+            salmon=1.10.2 \
+            alevin-fry \
+            scanpy \
+            anndata \
+            pandas \
+            numpy \
+            scipy \
+            matplotlib \
+            seaborn \
+            ipykernel \
+            pip
 
-    # -----------------------------------------
-    # Run your shell scripts
-    # -----------------------------------------
-    - name: Run Week 6 shell scripts
-      shell: bash -l {0}
-      run: |
-        source activate scenv
+          # Activate and install frytools via pip (no conda package)
+          conda activate scenv
+          pip install frytools
+          python -c "import scanpy as sc; print('scanpy', sc.__version__)"
+          which salmon || echo "salmon not found (will fail later if missing)"
 
-        echo "=== Running fetch_data.sh ==="
-        bash scripts/fetch_data.sh data/toy_read_ref_set.tar.gz
+      # -------------------------
+      # Extract local dataset tarball (you committed it)
+      # -------------------------
+      - name: Extract local dataset
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Listing week6/data before extraction:"
+          ls -la week6/data || true
+          echo "Extracting toy_read_ref_set.tar.gz..."
+          tar -xvf week6/data/toy_read_ref_set.tar.gz -C week6/data
+          echo "Post-extract contents:"
+          ls -R week6/data
 
-        echo "=== Running build_index.sh ==="
-        bash scripts/build_index.sh
+      # -------------------------
+      # Run the three pipeline scripts (use scenv)
+      # -------------------------
+      - name: Run fetch/build/quant scripts
+        shell: bash -l {0}
+        run: |
+          set -euo pipefail
+          source "$HOME/miniforge/etc/profile.d/conda.sh"
+          conda activate scenv
 
-        echo "=== Running run_alevin_fry.sh ==="
-        bash scripts/run_alevin_fry.sh
+          cd week6
 
-    # -----------------------------------------
-    # Execute the notebook
-    # -----------------------------------------
-    - name: Install Jupyter + nbconvert
-      shell: bash -l {0}
-      run: |
-        source activate scenv
-        pip install jupyter nbconvert
+          # Ensure scripts are executable
+          chmod +x scripts/*.sh
 
-    - name: Execute Week 6 notebook
-      shell: bash -l {0}
-      run: |
-        source activate scenv
-        jupyter nbconvert --to notebook --execute week6.ipynb --output week6_output.ipynb
+          echo "=== Running fetch_data.sh (uses local tarball) ==="
+          # fetch_data.sh in your repo was adjusted to use the local tarball (no Box)
+          ./scripts/fetch_data.sh
 
-    # -----------------------------------------
-    # Upload artifacts
-    # -----------------------------------------
-    - name: Upload results
-      uses: actions/upload-artifact@v4
-      with:
-        name: week6-results
-        path: |
-          week6_output.ipynb
-          results/
+          echo "=== Running build_index.sh ==="
+          ./scripts/build_index.sh
+
+          echo "=== Running run_alevin_fry.sh ==="
+          ./scripts/run_alevin_fry.sh
+
+      # -------------------------
+      # Execute the notebook (clustering + annotation)
+      # -------------------------
+      - name: Execute week6.ipynb
+        shell: bash -l {0}
+        run: |
+          set -euo pipefail
+          source "$HOME/miniforge/etc/profile.d/conda.sh"
+          conda activate scenv
+          cd week6
+          jupyter nbconvert --execute --to notebook \
+            --ExecutePreprocessor.timeout=3600 \
+            --output executed_week6.ipynb \
+            week6.ipynb
+
+      # -------------------------
+      # Upload executed notebook + outputs
+      # -------------------------
+      - name: Upload outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: week6-results
+          path: |
+            week6/executed_week6.ipynb
+            week6/data/**
+            week6/af_output/** || true
+          retention-days: 7
