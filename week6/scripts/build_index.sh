@@ -23,12 +23,12 @@ mkdir -p $INDEX_DIR
 
 echo "[build_index] Generating splici transcriptome with salmon..."
 
-# Modern splici reference construction
+# Salmon 1.10.x syntax (no --transcriptome)
 salmon alevin generate-splici \
-    --transcriptome $GENOME \
-    --gtf $GTF \
-    --output $SPLICI_DIR \
-    --flank-length 91
+    -r $GENOME \
+    -g $GTF \
+    -o $SPLICI_DIR \
+    -f 91
 
 echo "[build_index] Building Salmon index with pufferfish..."
 
