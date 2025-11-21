@@ -83,6 +83,8 @@ jobs:
       # -------------------------
       - name: Run fetch/build/quant scripts
         shell: bash -l {0}
+        env:
+          WHITELIST_URL: ""   # ← prevents unbound variable error
         run: |
           set -euo pipefail
           source "$HOME/miniforge/etc/profile.d/conda.sh"
