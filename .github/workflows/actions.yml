@@ -3,90 +3,60 @@ name: Week 6 Pipeline
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch:
+  pull_request:
 
 jobs:
   week6:
     runs-on: ubuntu-latest
 
     steps:
+      # ----------------------------------------------------
+      # 1. Checkout repo
+      # ----------------------------------------------------
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # -------------------------
-      # Install Miniforge (stable installer)
-      # -------------------------
-      - name: Install Miniforge (stable)
+      # ----------------------------------------------------
+      # 2. Install Miniforge (this version always worked)
+      # ----------------------------------------------------
+      - name: Install Miniforge
         shell: bash
         run: |
-          set -euo pipefail
-          echo "Downloading Miniforge installer..."
+          set -e
           wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O miniforge.sh
-          echo "Installing Miniforge..."
-          bash miniforge.sh -b -p "$HOME/miniforge"
-          echo "Adding Miniforge to PATH..."
-          echo "$HOME/miniforge/bin" >> $GITHUB_PATH
-          source "$HOME/miniforge/etc/profile.d/conda.sh" || true
-          conda --version
-
-      # -------------------------
-      # Ensure mamba is available in base
-      # -------------------------
-      - name: Install mamba into base
-        shell: bash -l {0}
-        run: |
-          set -euo pipefail
+          bash miniforge.sh -b -p $HOME/miniforge
           source "$HOME/miniforge/etc/profile.d/conda.sh"
-          conda install -y -n base -c conda-forge mamba
-          mamba --version
+          conda init bash
 
-      # -------------------------
-      # Create env + install tools
-      # -------------------------
-      - name: Create scenv and install tools
-        shell: bash -l {0}
+      # ----------------------------------------------------
+      # 3. Create scenv and install dependencies
+      #    IMPORTANT: Salmon must install ALONE first.
+      # ----------------------------------------------------
+      - name: Create scenv environment
+        shell: bash
         run: |
-          set -euo pipefail
+          set -e
           source "$HOME/miniforge/etc/profile.d/conda.sh"
 
+          # Create empty environment
           mamba create -y -n scenv python=3.10
-
-          mamba install -y -n scenv -c bioconda -c conda-forge \
-            "salmon>=1.10" \
+          
+          # STEP 1 — Install Salmon ALONE so it cannot be downgraded
+          mamba install -y -n scenv -c conda-forge -c bioconda salmon=1.10.2
+          
+          # STEP 2 — Install the rest
+          mamba install -y -n scenv -c conda-forge -c bioconda \
             alevin-fry \
-            scanpy \
-            anndata \
-            pandas \
-            numpy \
-            scipy \
-            matplotlib \
-            seaborn \
-            ipykernel \
-            pip
+            scanpy anndata numpy pandas scipy matplotlib seaborn
 
-          conda activate scenv
-          python -c "import scanpy as sc; print('scanpy', sc.__version__)"
-
-      # -------------------------
-      # Extract your bundled dataset
-      # -------------------------
-      - name: Extract local dataset
+      # ----------------------------------------------------
+      # 4. Run Week 6 shell scripts
+      # ----------------------------------------------------
+      - name: Run Week 6 pipeline scripts
         shell: bash
         run: |
           set -euo pipefail
-          echo "Extracting toy_read_ref_set.tar.gz..."
-          tar -xvf week6/data/toy_read_ref_set.tar.gz -C week6/data
-          ls -R week6/data
 
-      # -------------------------
-      # Run scripts
-      # -------------------------
-      - name: Run fetch/build/quant scripts
-        shell: bash -l {0}
-        env:
-          WHITELIST_URL: "https://github.com/f0t1h/3M-february-2018/raw/refs/heads/master/3M-february-2018.txt.gz"   # ← prevents unbound variable error
-        run: |
-          set -euo pipefail
           source "$HOME/miniforge/etc/profile.d/conda.sh"
           conda activate scenv
 
@@ -102,25 +72,25 @@ jobs:
           echo "=== Running run_alevin_fry.sh ==="
           ./scripts/run_alevin_fry.sh
 
-      # -------------------------
-      # Execute notebook
-      # -------------------------
+      # ----------------------------------------------------
+      # 5. Execute Jupyter Notebook
+      # ----------------------------------------------------
       - name: Execute week6.ipynb
-        shell: bash -l {0}
+        shell: bash
         run: |
-          set -euo pipefail
+          set -e
           source "$HOME/miniforge/etc/profile.d/conda.sh"
           conda activate scenv
 
           cd week6
           jupyter nbconvert --execute --to notebook \
-            --ExecutePreprocessor.timeout=3600 \
+            --ExecutePreprocessor.timeout=1800 \
             --output executed_week6.ipynb \
             week6.ipynb
 
-      # -------------------------
-      # Upload outputs
-      # -------------------------
+      # ----------------------------------------------------
+      # 6. Upload results
+      # ----------------------------------------------------
       - name: Upload outputs
         uses: actions/upload-artifact@v4
         with:
@@ -128,5 +98,6 @@ jobs:
           path: |
             week6/executed_week6.ipynb
             week6/data/**
-            week6/af_output/** || true
-          retention-days: 7
+            week6/out/**
+            week6/logs/**
+          retention-days: 30
