@@ -1,18 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Full Alevin-fry pipeline.
-# Inputs:
-#   data/<fastq1>.gz
-#   data/<fastq2>.gz
-#   data/whitelist.txt.gz
-#   index/splici_index/
-#
-# Outputs:
-#   af_output/quant/
-
-R1=data/*_R1*.fastq.gz
-R2=data/*_R2*.fastq.gz
+R1=data/selected_R1_reads.fastq.gz
+R2=data/selected_R2_reads.fastq.gz
 WL=data/whitelist.txt.gz
 INDEX=index/splici_index
 

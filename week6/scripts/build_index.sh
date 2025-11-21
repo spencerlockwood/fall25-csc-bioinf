@@ -1,14 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build a splici (spliced + intronic) transcriptome index for Alevin-fry.
-# Requires:
-#   data/chr5.fa
-#   data/annotations.gtf
-#
-# Produces:
-#   index/splici_index/
-
 echo "[build_index] Building splici reference..."
 
 mkdir -p index
@@ -27,11 +19,6 @@ if [[ ! -f "$GTF" ]]; then
     exit 1
 fi
 
-# Create splici reference using alevin-fry helper script
-# This generates:
-#   splici/transcriptome_spliced.fa
-#   splici/intronic.fa
-#   splici/splici.fa
 echo "[build_index] Generating splici transcriptome..."
 alevin-fry create-splici \
     -f "$FA" \
