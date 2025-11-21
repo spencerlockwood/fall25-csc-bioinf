@@ -6,8 +6,8 @@ echo "[build_index] Building splici reference..."
 mkdir -p index
 mkdir -p splici
 
-FA=data/chr5.fa
-GTF=data/annotations.gtf
+FA=data/genome.fa
+GTF=data/genes.gtf
 
 if [[ ! -f "$FA" ]]; then
     echo "[ERROR] Missing reference FASTA: $FA"
@@ -19,12 +19,12 @@ if [[ ! -f "$GTF" ]]; then
     exit 1
 fi
 
-echo "[build_index] Generating splici transcriptome with frytools..."
-frytools make-splici \
-    --fasta "$FA" \
-    --gtf "$GTF" \
-    --output splici \
-    --flank-length 5
+echo "[build_index] Generating splici transcriptome with salmon..."
+salmon splici \
+    -r "$FA" \
+    -g "$GTF" \
+    -o splici \
+    --flank-trim-length 5
 
 echo "[build_index] Building Salmon index..."
 salmon index \
