@@ -19,12 +19,12 @@ if [[ ! -f "$GTF" ]]; then
     exit 1
 fi
 
-echo "[build_index] Generating splici transcriptome..."
-alevin-fry create-splici \
-    -f "$FA" \
-    -g "$GTF" \
-    -o splici \
-    --flank-trim-length 5
+echo "[build_index] Generating splici transcriptome with frytools..."
+frytools make-splici \
+    --fasta "$FA" \
+    --gtf "$GTF" \
+    --output splici \
+    --flank-length 5
 
 echo "[build_index] Building Salmon index..."
 salmon index \

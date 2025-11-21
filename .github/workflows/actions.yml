@@ -36,7 +36,7 @@ jobs:
           source "$HOME/miniforge/etc/profile.d/conda.sh"
           mamba create -y -n scenv python=3.10
           mamba install -y -n scenv -c bioconda -c conda-forge \
-            salmon alevin-fry \
+            salmon alevin-fry frytools \
             scanpy anndata pandas numpy scipy \
             jupyter nbconvert matplotlib seaborn
 
