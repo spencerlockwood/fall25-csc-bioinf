@@ -47,7 +47,7 @@ jobs:
       - name: Execute notebook
         run: |
           cd week6
-          jupyter execute week6.ipynb --timeout=1800
+          jupyter nbconvert --to notebook --execute --inplace week6.ipynb --ExecutePreprocessor.timeout=1800
 
       - name: Upload results
         uses: actions/upload-artifact@v4
