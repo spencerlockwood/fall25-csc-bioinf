@@ -9,17 +9,25 @@ jobs:
   week6:
     runs-on: ubuntu-latest
 
+    # ----------------------------------------------------
+    #  Make secrets available to all steps
+    # ----------------------------------------------------
+    env:
+      BOX_FASTQ_URL: ${{ secrets.BOX_FASTQ_URL }}
+      WHITELIST_URL: ${{ secrets.WHITELIST_URL }}
+
     steps:
+
       # ----------------------------------------------------
-      # 1. Checkout repository
+      # 1. Checkout code
       # ----------------------------------------------------
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       # ----------------------------------------------------
-      # 2. Install Miniforge manually (stable link)
+      # 2. Install Miniforge (working stable link)
       # ----------------------------------------------------
-      - name: Install Miniforge (Python + Mamba)
+      - name: Install Miniforge
         shell: bash
         run: |
           set -e
@@ -29,56 +37,58 @@ jobs:
           conda init bash
 
       # ----------------------------------------------------
-      # 3. Create conda environment with all needed tools
+      # 3. Create conda env + install tools
       # ----------------------------------------------------
-      - name: Create conda environment with Salmon, Alevin-fry, Scanpy, Jupyter
+      - name: Create scenv environment
         shell: bash
         run: |
           source "$HOME/miniforge/etc/profile.d/conda.sh"
           mamba create -y -n scenv python=3.10
           mamba install -y -n scenv -c bioconda -c conda-forge \
-              salmon alevin-fry \
-              scanpy anndata pandas numpy scipy \
-              jupyter nbconvert matplotlib seaborn
+            salmon alevin-fry \
+            scanpy anndata pandas numpy scipy \
+            jupyter nbconvert matplotlib seaborn
 
       # ----------------------------------------------------
-      # 4. Run Week 6 shell scripts
+      # 4. Run Week 6 pipeline scripts
       # ----------------------------------------------------
-      - name: Run Week 6 pipeline scripts
+      - name: Run Week 6 shell scripts
         shell: bash
         run: |
+          set -e
           source "$HOME/miniforge/etc/profile.d/conda.sh"
           conda activate scenv
 
           cd week6
           chmod +x scripts/*.sh
 
-          echo "==== Running fetch_data.sh ===="
+          echo "=== Running fetch_data.sh ==="
           ./scripts/fetch_data.sh
 
-          echo "==== Running build_index.sh ===="
+          echo "=== Running build_index.sh ==="
           ./scripts/build_index.sh
 
-          echo "==== Running run_alevin_fry.sh ===="
+          echo "=== Running run_alevin_fry.sh ==="
           ./scripts/run_alevin_fry.sh
 
       # ----------------------------------------------------
-      # 5. Execute the Jupyter notebook (required for full marks)
+      # 5. Execute week6.ipynb for clustering & annotation
       # ----------------------------------------------------
       - name: Execute week6.ipynb
         shell: bash
         run: |
+          set -e
           source "$HOME/miniforge/etc/profile.d/conda.sh"
           conda activate scenv
 
           cd week6
           jupyter nbconvert --execute --to notebook \
-              --ExecutePreprocessor.timeout=1800 \
-              --output executed_week6.ipynb \
-              week6.ipynb
+            --ExecutePreprocessor.timeout=1800 \
+            --output executed_week6.ipynb \
+            week6.ipynb
 
       # ----------------------------------------------------
-      # 6. Upload all outputs as GitHub artifacts
+      # 6. Upload results
       # ----------------------------------------------------
       - name: Upload outputs
         uses: actions/upload-artifact@v4
