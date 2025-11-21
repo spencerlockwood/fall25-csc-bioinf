@@ -26,33 +26,31 @@ jobs:
           bash miniforge.sh -b -p "$HOME/miniforge"
           echo "Adding Miniforge to PATH..."
           echo "$HOME/miniforge/bin" >> $GITHUB_PATH
-          # make sure future steps have conda available immediately
           source "$HOME/miniforge/etc/profile.d/conda.sh" || true
           conda --version
 
       # -------------------------
-      # Ensure mamba is available in base (install via conda-forge)
+      # Ensure mamba is available in base
       # -------------------------
       - name: Install mamba into base
         shell: bash -l {0}
         run: |
           set -euo pipefail
           source "$HOME/miniforge/etc/profile.d/conda.sh"
-          # prefer conda-forge mamba for speed/solver
           conda install -y -n base -c conda-forge mamba
           mamba --version
 
       # -------------------------
-      # Create env and install tools with mamba
+      # Create env + install tools
       # -------------------------
-      - name: Create scenv and install bioinformatics tools
+      - name: Create scenv and install tools
         shell: bash -l {0}
         run: |
           set -euo pipefail
           source "$HOME/miniforge/etc/profile.d/conda.sh"
-          # create environment
+
           mamba create -y -n scenv python=3.10
-          # install core tools from bioconda/conda-forge
+
           mamba install -y -n scenv -c bioconda -c conda-forge \
             salmon=1.10.2 \
             alevin-fry \
@@ -66,28 +64,22 @@ jobs:
             ipykernel \
             pip
 
-          # Activate and install frytools via pip (no conda package)
           conda activate scenv
-          pip install frytools
           python -c "import scanpy as sc; print('scanpy', sc.__version__)"
-          which salmon || echo "salmon not found (will fail later if missing)"
 
       # -------------------------
-      # Extract local dataset tarball (you committed it)
+      # Extract your bundled dataset
       # -------------------------
       - name: Extract local dataset
         shell: bash
         run: |
           set -euo pipefail
-          echo "Listing week6/data before extraction:"
-          ls -la week6/data || true
           echo "Extracting toy_read_ref_set.tar.gz..."
           tar -xvf week6/data/toy_read_ref_set.tar.gz -C week6/data
-          echo "Post-extract contents:"
           ls -R week6/data
 
       # -------------------------
-      # Run the three pipeline scripts (use scenv)
+      # Run scripts
       # -------------------------
       - name: Run fetch/build/quant scripts
         shell: bash -l {0}
@@ -97,12 +89,9 @@ jobs:
           conda activate scenv
 
           cd week6
-
-          # Ensure scripts are executable
           chmod +x scripts/*.sh
 
-          echo "=== Running fetch_data.sh (uses local tarball) ==="
-          # fetch_data.sh in your repo was adjusted to use the local tarball (no Box)
+          echo "=== Running fetch_data.sh ==="
           ./scripts/fetch_data.sh
 
           echo "=== Running build_index.sh ==="
@@ -112,7 +101,7 @@ jobs:
           ./scripts/run_alevin_fry.sh
 
       # -------------------------
-      # Execute the notebook (clustering + annotation)
+      # Execute notebook
       # -------------------------
       - name: Execute week6.ipynb
         shell: bash -l {0}
@@ -120,6 +109,7 @@ jobs:
           set -euo pipefail
           source "$HOME/miniforge/etc/profile.d/conda.sh"
           conda activate scenv
+
           cd week6
           jupyter nbconvert --execute --to notebook \
             --ExecutePreprocessor.timeout=3600 \
@@ -127,7 +117,7 @@ jobs:
             week6.ipynb
 
       # -------------------------
-      # Upload executed notebook + outputs
+      # Upload outputs
       # -------------------------
       - name: Upload outputs
         uses: actions/upload-artifact@v4
