@@ -52,7 +52,7 @@ jobs:
           mamba create -y -n scenv python=3.10
 
           mamba install -y -n scenv -c bioconda -c conda-forge \
-            salmon=1.10.2 \
+            "salmon>=1.10" \
             alevin-fry \
             scanpy \
             anndata \
