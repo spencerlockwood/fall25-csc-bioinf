@@ -1,102 +1,72 @@
-name: Week 6 Pipeline
+name: Week 6 RNA-seq Pipeline
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  week6:
+  run-week6:
     runs-on: ubuntu-latest
 
-    env:
-      BOX_FASTQ_URL: ${{ secrets.BOX_FASTQ_URL }}
-      WHITELIST_URL: ${{ secrets.WHITELIST_URL }}
-
     steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
 
-      - name: Checkout repo
-        uses: actions/checkout@v4
+    - name: Install Mamba
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mambaforge
 
-      # Install Miniforge + mamba
-      - name: Install Miniforge
-        shell: bash
-        run: |
-          set -e
-          wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O miniforge.sh
-          bash miniforge.sh -b -p $HOME/miniforge
-          source "$HOME/miniforge/etc/profile.d/conda.sh"
-          conda init bash
+    - name: Create scenv environment
+      shell: bash -l {0}
+      run: |
+        mamba create -y -n scenv python=3.10 \
+          alevin-fry \
+          salmon \
+          fastqc \
+          multiqc \
+          scanpy \
+          anndata \
+          pandas \
+          numpy \
+          matplotlib \
+          seaborn \
+          pip
 
-      # Create conda env
-      - name: Create scenv environment
-        shell: bash
-        run: |
-          source "$HOME/miniforge/etc/profile.d/conda.sh"
-          mamba create -y -n scenv python=3.10
-          mamba install -y -n scenv -c bioconda -c conda-forge \
-            salmon alevin-fry frytools \
-            scanpy anndata pandas numpy scipy \
-            jupyter nbconvert matplotlib seaborn
+        source activate scenv
+        pip install frytools
 
-      # Extract your new toy dataset
-      - name: Extract toy dataset
-        shell: bash
-        run: |
-          cd week6/data
-          tar -xzf toy_read_ref_set.tar.gz
+    - name: Run Week 6 shell scripts
+      shell: bash -l {0}
+      run: |
+        source activate scenv
 
-      # Run scripts with corrected paths
-      - name: Run Week 6 shell scripts
-        shell: bash
-        run: |
-          set -e
-          source "$HOME/miniforge/etc/profile.d/conda.sh"
-          conda activate scenv
+        echo "=== Running fetch_data.sh ==="
+        bash scripts/fetch_data.sh data/toy_read_ref_set.tar.gz
 
-          cd week6
-          chmod +x scripts/*.sh
+        echo "=== Running build_index.sh ==="
+        bash scripts/build_index.sh
 
-          echo "=== Running fetch_data.sh ==="
-          ./scripts/fetch_data.sh
+        echo "=== Running run_alevin_fry.sh ==="
+        bash scripts/run_alevin_fry.sh
 
-          echo "=== Running build_index.sh ==="
-          ./scripts/build_index.sh \
-            data/toy_ref_read/toy_human_ref/fasta/genome.fa \
-            data/toy_ref_read/toy_human_ref/genes/genes.gtf \
-            index
+    - name: Install Jupyter + nbconvert
+      shell: bash -l {0}
+      run: |
+        source activate scenv
+        pip install jupyter nbconvert
 
-          echo "=== Running run_alevin_fry.sh ==="
-          ./scripts/run_alevin_fry.sh \
-            data/toy_ref_read/toy_read_fastq/selected_R1_reads.fastq \
-            data/toy_ref_read/toy_read_fastq/selected_R2_reads.fastq \
-            index \
-            out
+    - name: Execute Week 6 notebook
+      shell: bash -l {0}
+      run: |
+        source activate scenv
+        jupyter nbconvert --to notebook --execute week6.ipynb --output week6_output.ipynb
 
-      # Execute notebook
-      - name: Execute week6.ipynb
-        shell: bash
-        run: |
-          set -e
-          source "$HOME/miniforge/etc/profile.d/conda.sh"
-          conda activate scenv
-
-          cd week6
-          jupyter nbconvert --execute --to notebook \
-            --ExecutePreprocessor.timeout=1800 \
-            --output executed_week6.ipynb \
-            week6.ipynb
-
-      # Upload results
-      - name: Upload outputs
-        uses: actions/upload-artifact@v4
-        with:
-          name: week6-results
-          path: |
-            week6/executed_week6.ipynb
-            week6/data/**
-            week6/out/**
-            week6/index/**
-            week6/logs/**
-          retention-days: 30
+    - name: Upload results
+      uses: actions/upload-artifact@v4
+      with:
+        name: week6-results
+        path: |
+          week6_output.ipynb
+          results/
